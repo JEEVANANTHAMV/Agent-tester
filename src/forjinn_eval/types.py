@@ -121,6 +121,129 @@ class TimeMetadata:
         return {"start": self.start_ms, "end": self.end_ms, "delta": self.delta_ms}
 
 
+# ---- Multi-turn conversation primitives -----------------------------------
+@dataclass
+class Message:
+    """One turn in a multi-turn conversation.
+
+    ``role`` is one of ``human`` (user), ``ai`` / ``assistant`` (agent) or
+    ``system``. ``tool_calls`` holds the :class:`ToolCall`s the agent issued
+    during an ``ai`` turn (Forjinn surfaces these on the agent node's
+    ``output.calledTools``).
+    """
+
+    role: str = "human"
+    content: str = ""
+    tool_calls: List["ToolCall"] = field(default_factory=list)
+    retrieval_contexts: List[str] = field(default_factory=list)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, d: Any) -> "Message":
+        if not isinstance(d, dict):
+            return cls(role=str(d) if d else "", content=str(d))
+        role = str(d.get("role", "human")).lower()
+        return cls(
+            role=role,
+            content=str(d.get("content", "")),
+            tool_calls=[ToolCall.from_dict(t) for t in (d.get("tool_calls") or d.get("calledTools") or [])],
+            retrieval_contexts=[str(c) for c in (d.get("retrieval_contexts") or d.get("retrieved_contexts") or [])],
+            metadata=dict(d.get("metadata") or {}),
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "role": self.role,
+            "content": self.content,
+            "tool_calls": [t.to_dict() for t in self.tool_calls],
+            "retrieval_contexts": list(self.retrieval_contexts),
+            "metadata": self.metadata,
+        }
+
+    @property
+    def is_human(self) -> bool:
+        return self.role in {"human", "user"}
+
+    @property
+    def is_ai(self) -> bool:
+        return self.role in {"ai", "assistant"}
+
+
+@dataclass
+class Conversation:
+    """An ordered multi-turn transcript.
+
+    Built either from a list of :class:`Message` (or dicts) or from one or more
+    :class:`~forjinn_eval.capture.AgentRun` objects (each run contributes its
+    question + final answer + tool calls).
+    """
+
+    messages: List[Message] = field(default_factory=list)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_messages(cls, messages) -> "Conversation":
+        conv = cls()
+        for m in messages or []:
+            conv.append(m)
+        return conv
+
+    @classmethod
+    def from_runs(cls, *runs) -> "Conversation":
+        from .capture import AgentRun  # local import avoids a cycle during package init
+
+        conv = cls()
+        for r in runs:
+            if not isinstance(r, AgentRun):
+                continue
+            if r.question:
+                conv.messages.append(Message(role="human", content=r.question))
+            tool_calls = list(r.all_tool_calls)
+            if tool_calls or r.text:
+                conv.messages.append(Message(role="ai", content=r.text, tool_calls=tool_calls))
+        return conv
+
+    def append(self, message: "Message | Dict[str, Any]") -> "Message":
+        m = message if isinstance(message, Message) else Message.from_dict(message)
+        self.messages.append(m)
+        return m
+
+    def add_human(self, content: str) -> "Message":
+        return self.append(Message(role="human", content=content))
+
+    def add_ai(self, content: str, tool_calls=None) -> "Message":
+        return self.append(Message(role="ai", content=content, tool_calls=list(tool_calls or [])))
+
+    @property
+    def turns(self) -> List[Message]:
+        return list(self.messages)
+
+    @property
+    def human_turns(self) -> List[Message]:
+        return [m for m in self.messages if m.is_human]
+
+    @property
+    def ai_turns(self) -> List[Message]:
+        return [m for m in self.messages if m.is_ai]
+
+    @property
+    def tool_calls(self) -> List[ToolCall]:
+        out: List[ToolCall] = []
+        for m in self.messages:
+            out.extend(m.tool_calls)
+        return out
+
+    def retrieval_contexts(self, upto: Optional[int] = None) -> List[str]:
+        """Cumulative retrieved contexts across turns (``None`` = all)."""
+        out: List[str] = []
+        for m in self.messages[:upto]:
+            out.extend(m.retrieval_contexts)
+        return out
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"messages": [m.to_dict() for m in self.messages], "metadata": self.metadata}
+
+
 # ---- Canonical Forjinn node status values ---------------------------------
 STATUS_INPROGRESS = "INPROGRESS"
 STATUS_FINISHED = "FINISHED"
