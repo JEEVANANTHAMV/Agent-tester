@@ -46,18 +46,60 @@ from .tool_use import ToolUse
 from .toxicity import Toxicity
 from .topic_adherence import TopicAdherence
 
+from .answer_quality import AnswerAccuracy, NoiseSensitivity
+from .citations import CitationFaithfulness, QuotedSpansAlignment
+from .composition import AllOf, AnyOf, Not
+from .conversational import (
+    ConversationalGEval,
+    GoalAccuracyMulti,
+    MultiTurnTopicAdherence,
+    MultiTurnToolUse,
+    TurnContextualPrecision,
+    TurnContextualRecall,
+    TurnContextualRelevancy,
+    TurnFaithfulness,
+    TurnRelevancy,
+)
+from .contextual import (
+    ContextEntityRecall,
+    ContextualPrecision,
+    ContextualRecall,
+    ContextualRelevancy,
+)
+from .loop_detection import AgentLoopDetection
+from .misbehaviour import Misuse, NonAdvice, RoleViolation
+from .plan import (
+    ConversationCompleteness,
+    KnowledgeRetention,
+    PlanAdherence,
+    PlanQuality,
+    RoleAdherence,
+    StepEfficiency,
+)
+from .summarization import Summarization
+from .text_metrics import (
+    AnswerSimilarity,
+    BleuScore,
+    ChrfScore,
+    PatternMatch,
+    RougeScore,
+    SemanticSimilarity,
+)
+from .tool_correctness import ArgumentCorrectness, ToolCorrectness
+from .tool_deterministic import ToolCallAccuracy
+
 from .base import Evaluator, CheckResult  # noqa: F401  (re-exported)
 from ._common import (
     _OFFLINE_DEFAULTS,
     _string_similarity,
 )
-from ..judge import JudgeClient  # noqa: F401  (the judge object type)
+from ..judge import Embeddings, JudgeClient  # noqa: F401  (judge + embedding types)
 
 
 def default_judge_metrics(
     threshold: float = 0.5, judge: Optional[JudgeClient] = None
 ) -> List[Evaluator]:
-    """A representative LLM-judge battery (skips gracefully without a judge)."""
+    """A representative single-turn LLM-judge battery (skips gracefully without a judge)."""
     return [
         AnswerRelevancy(judge=judge, threshold=threshold),
         Faithfulness(judge=judge, threshold=threshold),
@@ -68,36 +110,124 @@ def default_judge_metrics(
     ]
 
 
+def safety_judge_metrics(threshold: float = 0.5, judge: Optional[JudgeClient] = None) -> List[Evaluator]:
+    """Safety / misbehaviour battery."""
+    return [
+        Bias(judge=judge, threshold=threshold),
+        Toxicity(judge=judge, threshold=threshold),
+        PIILeakage(judge=judge, threshold=threshold),
+        Misuse(judge=judge, threshold=threshold),
+        NonAdvice(judge=judge, threshold=threshold),
+    ]
+
+
+def rag_judge_metrics(threshold: float = 0.5, judge: Optional[JudgeClient] = None,
+                      embeddings: Optional[Embeddings] = None) -> List[Evaluator]:
+    """Full RAG battery (answer + retriever quality)."""
+    return [
+        Faithfulness(judge=judge, threshold=threshold),
+        AnswerRelevancy(judge=judge, threshold=threshold),
+        AnswerAccuracy(judge=judge, threshold=threshold),
+        NoiseSensitivity(judge=judge, threshold=threshold),
+        ContextualPrecision(judge=judge, threshold=threshold),
+        ContextualRecall(judge=judge, threshold=threshold),
+        ContextualRelevancy(embeddings=embeddings, threshold=threshold),
+        CitationFaithfulness(judge=judge, threshold=threshold),
+    ]
+
+
+def agent_judge_metrics(threshold: float = 0.5, judge: Optional[JudgeClient] = None) -> List[Evaluator]:
+    """Agent-behaviour battery."""
+    return [
+        TaskCompletion(judge=judge, threshold=threshold),
+        GoalAccuracy(judge=judge, threshold=threshold),
+        PlanAdherence(judge=judge, threshold=threshold),
+        PlanQuality(judge=judge, threshold=threshold),
+        StepEfficiency(judge=judge, threshold=threshold),
+        ConversationCompleteness(judge=judge, threshold=threshold),
+        KnowledgeRetention(judge=judge, threshold=threshold),
+        AgentLoopDetection(threshold=threshold),
+    ]
+
+
 __all__ = [
-    # RAG-assembled
+    # RAG-assembled (answer side)
     "Faithfulness",
     "AnswerRelevancy",
     "AnswerRelevancyDeepeval",
     "AnswerCorrectness",
     "FactualCorrectness",
+    "AnswerAccuracy",
+    "NoiseSensitivity",
     "TopicAdherence",
-    # deterministic string / reference
+    # RAG-assembled (retriever side)
+    "ContextualPrecision",
+    "ContextualRecall",
+    "ContextualRelevancy",
+    "ContextEntityRecall",
+    "CitationFaithfulness",
+    "QuotedSpansAlignment",
+    # deterministic string / reference / text-quality
     "ExactMatch",
     "StringPresence",
     "NonLLMStringSimilarity",
-    # safety / leak
+    "PatternMatch",
+    "BleuScore",
+    "RougeScore",
+    "ChrfScore",
+    "SemanticSimilarity",
+    "AnswerSimilarity",
+    "AgentLoopDetection",
+    # tool (LLM + deterministic)
+    "ToolUse",
+    "ToolCorrectness",
+    "ArgumentCorrectness",
+    "ToolCallAccuracy",
+    # safety / misbehaviour / leak
     "Hallucination",
     "Bias",
     "Toxicity",
     "PIILeakage",
-    # agent / task
+    "Misuse",
+    "NonAdvice",
+    "RoleViolation",
+    "RoleAdherence",
+    # agent / task / plan
     "TaskCompletion",
     "GoalAccuracy",
     "PromptAlignment",
-    "ToolUse",
+    "Summarization",
+    "PlanAdherence",
+    "PlanQuality",
+    "StepEfficiency",
+    "ConversationCompleteness",
+    "KnowledgeRetention",
+    # multi-turn conversational
+    "TurnFaithfulness",
+    "TurnRelevancy",
+    "TurnContextualPrecision",
+    "TurnContextualRecall",
+    "TurnContextualRelevancy",
+    "MultiTurnTopicAdherence",
+    "MultiTurnToolUse",
+    "ConversationalGEval",
+    "GoalAccuracyMulti",
     # giskard judges
     "LLMJudge",
     "Groundedness",
     "Contradiction",
     "Conformity",
     "AnswerRelevance",
-    # custom rubric
+    # custom rubric + composition
     "GEval",
-    # convenience
+    "AllOf",
+    "AnyOf",
+    "Not",
+    # embeddings
+    "Embeddings",
+    # convenience batteries
     "default_judge_metrics",
+    "safety_judge_metrics",
+    "rag_judge_metrics",
+    "agent_judge_metrics",
 ]
