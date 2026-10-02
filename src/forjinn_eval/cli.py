@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import os
 import sys
 from pathlib import Path
 from typing import List, Optional
@@ -74,6 +75,49 @@ def cmd_run(args) -> int:
     if args.fail_on_gate:
         return 0 if (args.min_pass_rate is None or (sr.pass_rate or 0) >= args.min_pass_rate) else 2
     return 0 if (sr.failed == 0 and sr.errors == 0) else 2
+
+
+def cmd_web_scenarios(args) -> int:
+    """Open the FULL metric catalogue to Forjinn web scenarios.
+
+    - ``--offline`` (default unless ``--online``) replays recorded fixtures with the
+      permissive judge: zero network, every metric runs.
+    - ``--online`` calls the live Forjinn builder (``--host``); the real judge is
+      used when ``FORJINN_JUDGE_CHATFLOW`` is configured.
+    - ``--include-persona`` adds a persona-driven multi-turn conversation.
+    """
+    import json as _json
+
+    from forjinn_eval import web_scenarios
+
+    online = getattr(args, "online", False)
+    suite = web_scenarios.run_all_scenarios(
+        offline=not online,
+        host=args.host,
+        token=args.token,
+        include_persona=args.include_persona,
+        suite_name="forjinn-web-scenarios",
+    )
+    print(suite.to_markdown())
+    for label, path, content, w in (
+        ("JSON", args.report_json, _json.dumps(suite.to_dict(), indent=2), True),
+        ("JUnit", args.report_xml, suite.to_junit_xml(), True),
+        ("Markdown", args.report_md, suite.to_markdown(), True),
+    ):
+        if not path:
+            continue
+        p = Path(path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(content, encoding="utf-8")
+        print(f"wrote {label}: {p}")
+    if args.min_pass_rate is not None:
+        ok = (suite.pass_rate or 0) >= args.min_pass_rate
+        print(f"pass-rate gate: {suite.pass_rate:.3f} >= {args.min_pass_rate} -> {'OK' if ok else 'BELOW'}")
+        if not ok:
+            return 2
+    if online:
+        return 0 if (suite.failed == 0 and suite.errors == 0) else 2
+    return 0
 
 
 def cmd_list(args) -> int:
@@ -162,6 +206,22 @@ def main(argv: Optional[List[str]] = None) -> int:
     ps = sub.add_parser("smoke", help="offline smoke against recorded samples")
     ps.add_argument("--report", help="write JSON report to this path")
     ps.set_defaults(func=cmd_smoke)
+
+    pw = sub.add_parser(
+        "web-scenarios",
+        help="run the FULL metric catalogue across Forjinn-web scenarios "
+             "(offline by default; --online hits the live builder)",
+    )
+    pw.add_argument("--host", default=os.environ.get("FORJINN_HOST", "https://172.16.34.7"))
+    pw.add_argument("--token", default=None)
+    pw.add_argument("--online", action="store_true", help="call the live Forjinn builder")
+    pw.add_argument("--offline", action="store_true", help="(default) replay recorded fixtures")
+    pw.add_argument("--include-persona", action="store_true", help="add a persona-driven conversation")
+    pw.add_argument("--report-json", help="write JSON report")
+    pw.add_argument("--report-xml", help="write JUnit report")
+    pw.add_argument("--report-md", help="write Markdown report")
+    pw.add_argument("--min-pass-rate", type=float, default=None)
+    pw.set_defaults(func=cmd_web_scenarios)
 
     args = p.parse_args(argv)
     return args.func(args)

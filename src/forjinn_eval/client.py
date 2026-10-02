@@ -25,7 +25,7 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Union
 
 import requests
 
-from .capture import AgentRun, iter_sse_events, parse_sse_text
+from .capture import AgentRun, Conversation, Message, iter_sse_events, parse_sse_text
 from .types import ForjinnError
 
 # Forjinn self-hosted builders use self-signed certs; verify_ssl=False is the
@@ -96,6 +96,60 @@ class ForjinnClient:
         else:
             run = AgentRun.from_nonstream(chatflow_id, resp.json())
         return run
+
+    def predict_multi_turn(
+        self,
+        chatflow_id: str,
+        turns: Sequence[Union[str, Dict[str, Any]]],
+        *,
+        extra_body: Optional[Dict[str, Any]] = None,
+    ) -> AgentRun:
+        """Run a multi-turn conversation against a Forjinn agent.
+
+        ``turns`` is an ordered list where each entry is either a bare human
+        prompt string, or a dict with ``"role"`` and ``"content"``. Human turns
+        are sent as separate ``/api/v1/prediction`` calls (the agent's memory
+        carries the history when ``agentEnableMemory`` is on); the final
+        assistant answers are stitched into a single :class:`AgentRun` via
+        :meth:`AgentRun.from_conversation` so both single-turn and multi-turn
+        metrics can read it.
+        """
+        # Collect the API prompts (str / human-dict) in order; ai-dicts are
+        # transcript-only (seeded history), no API call.
+        prompts: List[str] = []
+        for t in turns:
+            if isinstance(t, dict):
+                role = str(t.get("role", "human")).lower()
+                if role in {"ai", "assistant"}:
+                    continue
+            prompts.append(t if isinstance(t, str) else str(t.get("content", "")))
+
+        runs: List[AgentRun] = []
+        for content in prompts:
+            body: Dict[str, Any] = {"question": content, "streaming": False}
+            if extra_body:
+                body.update(extra_body)
+            url = self._url(f"/api/v1/prediction/{chatflow_id}")
+            resp = self._http.post(url, data=json.dumps(body), timeout=self.timeout, verify=self.verify_ssl)
+            if resp.status_code >= 400:
+                raise ForjinnError(f"multi-turn prediction failed [{resp.status_code}]: {_short(resp.text)}")
+            runs.append(AgentRun.from_nonstream(chatflow_id, resp.json()))
+
+        conv = Conversation()
+        r_ptr = 0
+        for t in turns:
+            if isinstance(t, dict) and str(t.get("role", "human")).lower() in {"ai", "assistant"}:
+                conv.add_ai(str(t.get("content", "")))
+            else:
+                content = t if isinstance(t, str) else (str(t.get("content", "")) if isinstance(t, dict) else str(t))
+                if content:
+                    conv.add_human(content)
+                if r_ptr < len(runs):
+                    run = runs[r_ptr]; r_ptr += 1
+                    conv.add_ai(run.text, run.all_tool_calls)
+        conv.metadata["chatflow_id"] = chatflow_id
+        conv.metadata["reference"] = extra_body.get("reference") if isinstance(extra_body, dict) else None
+        return AgentRun.from_conversation(conv)
 
     def stream(self, chatflow_id: str, question: str, **kw: Any) -> Iterator[Any]:
         """Yield :class:`StreamEvent`s as they arrive (live)."""
