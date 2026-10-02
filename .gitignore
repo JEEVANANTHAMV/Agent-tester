@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Test outputs / generated artifacts
+out/
+report.json
+report.xml
+report.md
+smoke.json
+*.report.*
+
+# Reference repos cloned for research (deepeval/ragas/giskard/agent-evaluation) -
+# not part of this project; kept local only.
+research/
+
+# Local / env
+.env
+*.local
+forjinn-eval.local.json
+
+# OS / editor
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
