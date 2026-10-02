@@ -32,6 +32,8 @@ from .types import (
     EV_NEXT_AGENT_FLOW,
     EV_TOKEN,
     EV_USAGE,
+    Conversation,
+    Message,
     STATUS_FINISHED,
     ToolCall,
     TimeMetadata,
@@ -161,6 +163,55 @@ class AgentRun:
     raw: Dict[str, Any] = field(default_factory=dict)
 
     # ---- construction -------------------------------------------------------
+    @classmethod
+    def from_conversation(cls, conversation: "Conversation | List[Dict[str, Any]] | List['Message']") -> "AgentRun":
+        """Build an :class:`AgentRun` from a multi-turn transcript.
+
+        The whole conversation is exposed via :meth:`turns`; the *final*
+        assistant turn's content becomes :attr:`text`, its tool calls become
+        :attr:`called_tools`, and the first human turn becomes :attr:`question`.
+        This lets every single-turn metric in the catalog read a multi-turn
+        conversation through the exact same :class:`AgentRun` interface.
+        """
+        conv = conversation if isinstance(conversation, Conversation) else Conversation.from_messages(conversation)
+        q = conv.metadata.get("question") or (conv.human_turns[0].content if conv.human_turns else "")
+        last_ai = conv.ai_turns[-1] if conv.ai_turns else None
+        run = cls(
+            chatflow_id=conv.metadata.get("chatflow_id", "conversation"),
+            question=q,
+            streaming=False,
+            raw={"conversation": conv.to_dict(), "reference": conv.metadata.get("reference")},
+        )
+        if last_ai:
+            run.text = last_ai.content
+            run.called_tools = [t for t in last_ai.tool_calls] or list(conv.tool_calls)
+        else:
+            run.text = ""
+            run.called_tools = list(conv.tool_calls)
+        if "reference" in conv.metadata and conv.metadata["reference"]:
+            run.raw["reference"] = conv.metadata["reference"]
+        run._conversation = conv
+        return run
+
+    @property
+    def conversation(self) -> Conversation:
+        """The multi-turn transcript, if built from one (else a single-turn view)."""
+        conv = getattr(self, "_conversation", None)
+        if conv is not None:
+            return conv
+        out = Conversation()
+        if self.question:
+            out.add_human(self.question)
+        if self.text or self.called_tools:
+            out.add_ai(self.text, self.called_tools)
+        return out
+
+    def turns(self) -> List[Message]:
+        return self.conversation.turns
+
+    def context_upto(self, turn_index: Optional[int] = None) -> List[str]:
+        return self.conversation.retrieval_contexts(upto=turn_index)
+
     @classmethod
     def from_nonstream(cls, chatflow_id: str, payload: Dict[str, Any]) -> "AgentRun":
         run = cls(
@@ -292,12 +343,32 @@ class AgentRun:
     #  * reference (ground truth) : `raw.reference`
     #  * agent config      : `agentModelConfig` from the final agent node
     def retrieved_context(self) -> List[str]:
-        """Context chunks the agent saw (knowledge bases / document stores)."""
+        """Context chunks the agent saw (knowledge bases / document stores).
+
+        Single-turn runs look at agent-node output/state and ``raw.retrieved_contexts``.
+        Multi-turn runs also draw per-turn contexts off the transcript
+        (``Message.retrieval_contexts``), so :meth:`AgentRun.from_conversation`
+        carries the per-turn contexts a conversational RAG agent retrieved.
+        """
         raw = self.raw or {}
         explicit = raw.get("retrieved_contexts")
         if isinstance(explicit, list) and explicit:
             return [str(c) for c in explicit]
         out: List[str] = []
+        # Multi-turn: per-message contexts (set on the Message objects).
+        conv = getattr(self, "_conversation", None)
+        if conv is not None:
+            for m in conv.turns:
+                for c in m.retrieval_contexts:
+                    if c and c.strip():
+                        out.append(str(c))
+                md = m.metadata.get("retrieval_contexts") or m.metadata.get("retrieved_contexts")
+                if isinstance(md, list):
+                    out.extend(str(c) for c in md if c)
+                elif isinstance(md, str) and md.strip():
+                    out.append(md)
+            if out:
+                return out
         for nd in self.nodes:
             ctx = nd.output.get("context") or nd.input.get("context")
             if isinstance(ctx, str) and ctx.strip():
@@ -316,6 +387,26 @@ class AgentRun:
         """Ground-truth answer, if the caller attached one via run.raw."""
         r = (self.raw or {}).get("reference")
         return str(r) if r not in (None, "") else None
+
+    @property
+    def reference_tool_calls(self) -> List[ToolCall]:
+        """Ground-truth tool calls (agent-style metrics), via ``run.raw``.
+
+        The caller attaches ``raw.reference_tool_calls`` as a list of names or
+        ``(name, args)`` tuples / dicts; normalised to :class:`ToolCall`.
+        """
+        raw = (self.raw or {}).get("reference_tool_calls") or []
+        out: List[ToolCall] = []
+        for r in raw:
+            if isinstance(r, ToolCall):
+                out.append(r)
+            elif isinstance(r, str):
+                out.append(ToolCall(name=r))
+            elif isinstance(r, (tuple, list)):
+                out.append(ToolCall(name=r[0], arguments=dict(r[1]) if len(r) > 1 else {}))
+            elif isinstance(r, dict):
+                out.append(ToolCall.from_dict(r))
+        return out
 
     def agent_config(self) -> Dict[str, Any]:
         node = self.final_agent_node
