@@ -90,7 +90,19 @@ def extract_json(text: str) -> Optional[Any]:
 
 
 def as_int01(x: Any) -> int:
-    """Coerce a judge verdict into 0/1 (ragas NLI ``verdict: int`` style)."""
+    """Coerce a judge verdict into 0/1 (ragas NLI ``verdict: int`` style).
+
+    Tolerates the common nested shape ``{"verdict": 1}`` / ``{"faithful": 1}`` /
+    ``{"relevant": 1}`` by probing a few well-known keys.
+    """
+    if isinstance(x, dict):
+        for k in ("verdict", "faithful", "relevant", "supported", "useful", "correct",
+                  "in_context", "covered", "on_topic"):
+            if k in x:
+                return as_int01(x[k])
+        if "reason" in x:
+            return 1  # a permissive/structured entry with no explicit negation
+        return 0
     if isinstance(x, bool):
         return int(x)
     if isinstance(x, (int, float)):
@@ -245,6 +257,89 @@ class JudgeClient(BaseJudge):
         return f"<JudgeClient chatflow={self.judge_chatflow!r} streaming={self._transport.streaming}>"
 
 
+# ---------------------------------------------------------------------------
+# Embeddings (for embedding-based metrics: semantic similarity, relevancy, recall)
+# ---------------------------------------------------------------------------
+def _cosine(a: List[float], b: List[float]) -> float:
+    if not a or not b or len(a) != len(b):
+        return 0.0
+    dot = sum(x * y for x, y in zip(a, b))
+    na = sum(x * x for x in a) ** 0.5
+    nb = sum(y * y for y in b) ** 0.5
+    if na == 0 or nb == 0:
+        return 0.0
+    c = dot / (na * nb)
+    return max(-1.0, min(1.0, c))
+
+
+class Embeddings:
+    """Text-embedding backend with graceful degradation.
+
+    Resolution order: (1) an injected ``embedder(text) -> List[float]`` callable
+    (bring your own - e.g. a Forjinn embedding chatflow or an OpenAI-style
+    client); (2) ``sentence-transformers`` if installed; (3) a deterministic
+    hash-based bag-of-words model (always available, offline, no dependencies).
+
+    The hash fallback keeps the metric *meaningful* (it scores by overlapping
+    word content, which is the crux of semantic-similarity / recall metrics)
+    rather than a random vector, so the whole catalog runs offline for Forjinn
+    web without any network.
+    """
+
+    def __init__(self, embedder: Optional[Callable[[str], List[float]]] = None,
+                 model: Optional[str] = None):
+        self._embedder = embedder
+        self._st = None
+        self._st_model = model
+        if embedder is None:
+            try:
+                from sentence_transformers import SentenceTransformer  # type: ignore
+
+                self._st = SentenceTransformer(model or "all-MiniLM-L6-v2")
+            except Exception:
+                self._st = None
+
+    @classmethod
+    def from_env(cls, embedder: Optional[Callable[[str], List[float]]] = None) -> "Embeddings":
+        """Build from env; ``EMBEDDING_MODEL`` selects a sentence-transformers model."""
+        return cls(embedder=embedder, model=os.environ.get("EMBEDDING_MODEL") or None)
+
+    def embed(self, text: str) -> List[float]:
+        text = text or ""
+        if self._embedder is not None:
+            return list(self._embedder(text) or [])
+        if self._st is not None:
+            return list(self._st.encode(text, normalize_embeddings=True))
+        return self._hash_embed(text)
+
+    def _hash_embed(self, text: str) -> List[float]:
+        """Deterministic, dependency-free bag-of-words embedding.
+
+        Each token maps to a fixed bucket (via md5) with a unit weight; the
+        vector is L2-normalised. Cosine of two such vectors is a token-overlap
+        similarity (Jaccard-ish) - meaningful for semantic-similarity / recall
+        metrics, fully offline, and stable across processes.
+        """
+        import hashlib
+
+        dim = 512
+        vec = [0.0] * dim
+        words = re.findall(r"[a-z0-9']+", (text or "").lower())
+        for w in words:
+            i = int.from_bytes(hashlib.md5(w.encode("utf-8")).digest()[:4], "little") % dim
+            vec[i] += 1.0
+        norm = sum(v * v for v in vec) ** 0.5
+        if norm > 0:
+            vec = [v / norm for v in vec]
+        return vec
+
+    def similarity(self, a: str, b: str) -> float:
+        return _cosine(self.embed(a), self.embed(b))
+
+    def cosine(self, a: List[float], b: List[float]) -> float:
+        return _cosine(a, b)
+
+
 def from_env() -> Optional["BaseJudge"]:
     """Build a :class:`JudgeClient` from environment, or ``None`` if not configured.
 
@@ -262,9 +357,17 @@ def from_env() -> Optional["BaseJudge"]:
 class MockJudge(BaseJudge):
     """Offline stand-in for :class:`JudgeClient` (no network).
 
-    Provide a responder ``fn(question) -> str-or-dict`` and/or pre-queued results.
-    Queued values are popped first (FIFO); then the responder is used. Records
-    every ``question`` in :attr:`calls`.
+    Accepts either:
+
+    * a single ``responder`` callable ``fn(question) -> str-or-dict`` used for
+      *every* call, or
+    * a **queue** of responders/values via :meth:`add` - each is consumed by the
+      next call (FIFO), letting tests script a per-request response (the way a
+      real judge answers one rubric at a time). A queued entry may be a
+      ``str``/``dict`` (used directly) or a ``callable(question) -> ...``.
+
+    Records every ``question`` in :attr:`calls`. If the queue is exhausted and
+    no ``responder`` is set, returns ``{}``.
     """
 
     def __init__(self, responder: Optional[Callable[[str], Any]] = None):
@@ -279,12 +382,36 @@ class MockJudge(BaseJudge):
     def complete(self, question: str, *, max_tokens: int = 1024, retries: int = 2) -> str:
         self.calls.append(question)
         if self._queue:
-            out = self._queue.pop(0)
+            nxt = self._queue.pop(0)
+            if callable(nxt):
+                out = nxt(question)
+            else:
+                out = nxt
             return out if isinstance(out, str) else json.dumps(out)
         if self._responder:
             out = self._responder(question)
             return out if isinstance(out, str) else json.dumps(out)
         return "{}"
+
+
+def queuing_judge(script: Optional[Sequence[Any]] = None,
+                  fallback: Optional[Callable[[str], Any]] = None) -> MockJudge:
+    """Build a per-call offline judge.
+
+    ``script`` is a sequence of pre-scripted responses (str/dict/callable), one
+    consumed per judge call in order. ``fallback`` answers once the script is
+    exhausted - by default the permissive shape-aware responder from
+    :mod:`.metrics._common` - so long multi-step metrics (decompose-then-judge)
+    keep running.
+    """
+    if fallback is None:
+        from .metrics._common import _offline_responder
+
+        fallback = _offline_responder
+    j = MockJudge(responder=fallback)
+    for item in script or []:
+        j.add(item)
+    return j
 
 
 # Process-wide default judge (lazy).

@@ -41,16 +41,13 @@ def _llm_judge_from_env():
     has_judge = bool(os.environ.get("FORJINN_JUDGE_CHATFLOW"))
     if not (enabled or has_judge):
         return None
-    from .judge import JudgeClient, MockJudge
-    from .metrics._common import _OFFLINE_DEFAULTS
+    from .judge import JudgeClient, queuing_judge
 
     if os.environ.get("FORJINN_OFFLINE", "").strip().lower() in {"1", "true", "yes", "on"}:
-        # Permissive offline stand-in: answer "as if" a pass-oriented judge for
-        # whatever the metric asks, so the whole catalog runs with no network.
-        def offline_responder(question: str):
-            return dict(_OFFLINE_DEFAULTS)
-
-        return MockJudge(responder=offline_responder)
+        # Permissive offline stand-in: the canonical queuing judge answers each
+        # per-request rubric with a favourable, shape-correct value so the whole
+        # LLM catalog runs with no network.
+        return queuing_judge()
     return JudgeClient()
 
 

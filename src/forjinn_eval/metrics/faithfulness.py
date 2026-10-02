@@ -8,7 +8,7 @@ from typing import Optional
 from ..capture import AgentRun
 from ..judge import JudgeClient, as_int01, _judge_or_default
 from .base import CheckResult, Evaluator
-from ._common import _cr, _f, _fmt_list, _judge_user, _nan_or_skip
+from ._common import _cr, _f, _fmt_list, _judge_user, _nan_or_skip, _verdict_list
 
 
 class Faithfulness(Evaluator):
@@ -46,14 +46,19 @@ class Faithfulness(Evaluator):
         j = self.judge
         out = j.complete_json(_judge_user(_f(
             self.DECOMPOSE_STATEMENTS, question=run.question, answer=run.text)))
-        if not out or not out.get("statements"):
+        from ._common import _norm_list
+
+        statements = out.get("statements") if isinstance(out, dict) else None
+        if not statements:
+            # fall back: treat the raw answer as a single statement
+            statements = _norm_list(run.text or "")
+        if not statements or (isinstance(statements, list) and len(statements) == 0):
             return _nan_or_skip(self.name, "statement decomposition returned no statements")
-        statements = out["statements"]
         nli = j.complete_json(_judge_user(_f(
             self.NLI_JUDGE, context="\n".join(ctx), statements=_fmt_list(statements))))
         if not nli or not isinstance(nli.get("statements"), list):
             return CheckResult.error_(self.name, "NLI judge returned no verdicts")
-        verdicts = [as_int01(v.get("verdict")) for v in nli["statements"]]
+        verdicts = _verdict_list(nli["statements"], key="verdict")
         if not verdicts:
             return _nan_or_skip(self.name, "NLI judge returned no verdicts")
         score = sum(verdicts) / len(verdicts)
