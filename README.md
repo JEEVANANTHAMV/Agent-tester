@@ -157,7 +157,7 @@ run.stream_events      # decoded SSE events (agentFlowEvent, nextAgentFlow, toke
 
 The idiomatic pattern is **register cases with `@agent_test`, then run them via
 the CLI or pytest** — the same file drives both. See a complete, runnable module
-in [`examples/agent_tests.py`](examples/agent_tests.py).
+in [`examples/agent_tests.py`](https://github.com/JEEVANANTHAMV/Agent-tester/blob/master/examples/agent_tests.py).
 
 ```python
 # my_agent_tests.py
@@ -220,7 +220,7 @@ def test_agent_counts():
 
 A deep, worked guide with many patterns — including reference/LLM cases, custom
 evaluators, composition, budgets, multi-turn and the CI gate — is in
-[**docs/writing-tests.md**](docs/writing-tests.md).
+[**docs/writing-tests.md**](https://github.com/JEEVANANTHAMV/Agent-tester/blob/master/docs/writing-tests.md).
 
 ---
 
@@ -393,7 +393,7 @@ class AnswerHasGreeting(Evaluator):
 ```
 
 A full, annotated catalog + when-to-use guidance is in
-[**docs/metrics.md**](docs/metrics.md).
+[**docs/metrics.md**](https://github.com/JEEVANANTHAMV/Agent-tester/blob/master/docs/metrics.md).
 
 ---
 
@@ -448,8 +448,8 @@ suite = SuiteRunner(suite_name="conv").run([make_case("refund-thread", run, [
 ], tags=["conversation"])])
 ```
 
-See [**docs/architecture.md**](docs/architecture.md) for the `AgentRun` /
-`Conversation` / `Message` data model and [**docs/writing-tests.md**](docs/writing-tests.md#multi-turn--conversational-tests)
+See [**docs/architecture.md**](https://github.com/JEEVANANTHAMV/Agent-tester/blob/master/docs/architecture.md) for the `AgentRun` /
+`Conversation` / `Message` data model and [**docs/writing-tests.md**](https://github.com/JEEVANANTHAMV/Agent-tester/blob/master/docs/writing-tests.md#multi-turn--conversational-tests)
 for conversational test patterns.
 
 ---
@@ -499,8 +499,17 @@ tests/fixtures/      # recorded agent captures (ground truth for offline mode)
 examples/            # runnable sample test-case modules (live or FORJINN_OFFLINE=1)
 ```
 
-Docs: **[docs/](docs/)** — installation, quickstart, architecture, metrics
-catalog, writing test cases, configuration, API reference, release guide.
+## Documentation
+
+| Document | Description |
+|:---|:---|
+| [**Quickstart**](https://github.com/JEEVANANTHAMV/Agent-tester/blob/master/docs/quickstart.md) | First assertions in 5 minutes (CLI, pytest, offline mock) |
+| [**Writing Tests**](https://github.com/JEEVANANTHAMV/Agent-tester/blob/master/docs/writing-tests.md) | `@agent_test`, multi-turn, custom evaluators, fixtures |
+| [**Metrics Catalog**](https://github.com/JEEVANANTHAMV/Agent-tester/blob/master/docs/metrics.md) | Complete reference of 30+ deterministic and LLM-judged metrics |
+| [**Architecture**](https://github.com/JEEVANANTHAMV/Agent-tester/blob/master/docs/architecture.md) | `AgentRun`, `Conversation`, `Message`, and node execution model |
+| [**Configuration**](https://github.com/JEEVANANTHAMV/Agent-tester/blob/master/docs/configuration.md) | Environment variables, CLI flags, pytest integration |
+| [**API Reference**](https://github.com/JEEVANANTHAMV/Agent-tester/blob/master/docs/api-reference.md) | Public classes, methods, and entrypoints |
+| [**Installation**](https://github.com/JEEVANANTHAMV/Agent-tester/blob/master/docs/installation.md) | Package installation, optional extras, and dependencies |
 
 ---
 
@@ -548,4 +557,4 @@ docs/             # installation, quickstart, architecture, metrics, writing-tes
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](https://github.com/JEEVANANTHAMV/Agent-tester/blob/master/LICENSE).

@@ -70,8 +70,11 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/JEEVANANTHAMV/Agent-tester"
 Repository = "https://github.com/JEEVANANTHAMV/Agent-tester"
+Documentation = "https://github.com/JEEVANANTHAMV/Agent-tester/tree/master/docs"
+"Quick Start" = "https://github.com/JEEVANANTHAMV/Agent-tester/blob/master/docs/quickstart.md"
+"Metrics Catalog" = "https://github.com/JEEVANANTHAMV/Agent-tester/blob/master/docs/metrics.md"
+"API Reference" = "https://github.com/JEEVANANTHAMV/Agent-tester/blob/master/docs/api-reference.md"
 Issues = "https://github.com/JEEVANANTHAMV/Agent-tester/issues"
-Documentation = "https://github.com/JEEVANANTHAMV/Agent-tester/tree/main/docs"
 Changelog = "https://github.com/JEEVANANTHAMV/Agent-tester/releases"
 
 [project.scripts]
