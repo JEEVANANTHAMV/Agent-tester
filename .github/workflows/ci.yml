@@ -31,6 +31,32 @@ jobs:
         run: |
           forjinn-eval run examples/agent_tests.py --report-json out/report.json --report-xml out/report.xml --min-pass-rate 1.0 --fail-on-gate
 
+      - name: Sample agent tests (offline, all example modules)
+        env:
+          FORJINN_OFFLINE: "1"
+        run: |
+          forjinn-eval run examples/hello_agent.py --min-pass-rate 1.0 --fail-on-gate
+          forjinn-eval run examples/deterministic_metrics.py
+          forjinn-eval run examples/llm_judged.py --min-pass-rate 1.0 --fail-on-gate
+          forjinn-eval run examples/multi_turn.py --min-pass-rate 1.0 --fail-on-gate
+
+      - name: Forjinn-web scenario battery (offline, full catalog)
+        env:
+          FORJINN_OFFLINE: "1"
+        run: |
+          forjinn-eval web-scenarios --offline --min-pass-rate 0.9 --fail-on-gate
+
+      # Reporting-only today (there is a pre-existing style/type backlog from
+      # before the doc/packaging pass). The meaningful gates are the tests +
+      # offline runs above. Flip these to hard gates once `ruff`/`mypy` are clean.
+      - name: Lint (report only)
+        continue-on-error: true
+        run: ruff check src tests
+
+      - name: Type-check (report only)
+        continue-on-error: true
+        run: mypy
+
   live:
     # Optional live e2e against a real Forjinn builder, only when secrets are set.
     needs: test
