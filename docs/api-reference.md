@@ -78,6 +78,7 @@ Constructors: `CheckResult.pass_(name, reason, **kw)`, `fail_(…, score=…)`,
 | Name | Notes |
 |---|---|
 | `JudgeClient(judge_chatflow, base_url=…, streaming=…, …)` / `.from_env()` | A judge that is a Forjinn chatflow over the Forjinn API/SSE. |
+| `OpenAIJudge(api_key=…, base_url=…, model=…, …)` / `.from_env()` | A judge that is an **OpenAI-compatible** chat model (OpenAI, OpenRouter, Together, Groq, vLLM, Ollama, LM-Studio). Auto-reads `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `OPENAI_JUDGE_MODEL`. JSON-mode by default. |
 | `MockJudge(responder=None)` | Offline stand-in. `.add(value)` queues a per-call reply (FIFO); `.calls` records questions. |
 | `queuing_judge(script=None, fallback=None)` | A `MockJudge` that answers a scripted reply per call; `fallback` (default `_offline_responder`) kicks in when the script is exhausted. |
 | `set_default_judge(client)` / `get_default_judge()` | Install / lazy-build a process-wide judge. |

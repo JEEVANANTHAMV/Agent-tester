@@ -17,6 +17,9 @@ CI secrets.
 | `FORJINN_JUDGE_STREAMING` | `0` | judge | `1` → drive the judge over the SSE streaming path. |
 | `FORJINN_LLM_TESTS` | — | tests | `1` → run the opt-in **real-LLM** tests (`pytest -m live`). Off in default CI. |
 | `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | embeddings | Model for `Embeddings` **if** `sentence-transformers` is installed (`[embeddings]` extra). Ignored otherwise. |
+| `OPENAI_API_KEY` | — | OpenAI judge | API key for an `OpenAIJudge` (OpenAI or any OpenAI-compatible server). |
+| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI judge | Base URL for the model (point at OpenRouter / Together / Groq / vLLM / Ollama / LM-Studio here). |
+| `OPENAI_JUDGE_MODEL` | `gpt-4o-mini` | OpenAI judge | Model used for judging. |
 | `FORJINN_AGENT_NO_TOOLS` / `FORJINN_AGENT_WITH_MCP` | (sample ids) | examples / live CI | Chatflow ids used by the example modules and the live e2e job. |
 
 > There is intentionally **no** per-agent config file. A "config" is just: the host
@@ -53,6 +56,37 @@ Now every case **also** gets: Answer Relevancy, Faithfulness, Hallucination, Pro
 Alignment, Bias, Toxicity, and a `GEval` seeded from the case's description. Set
 these **per case** instead (explicit `judge=` on each metric) when you want finer
 control — see [writing-tests.md §4](writing-tests.md#4-llm-judged-cases-two-ways).
+
+### 2b. Live + an OpenAI (or OpenAI-compatible) judge
+
+No Forjinn chatflow needed — point the judge at any OpenAI-compatible model:
+
+```bash
+export OPENAI_API_KEY="sk-…"
+export OPENAI_BASE_URL="https://api.openai.com/v1"        # or OpenRouter / Groq / vLLM / Ollama
+export OPENAI_JUDGE_MODEL="gpt-4o-mini"
+```
+
+Then in your test module:
+
+```python
+from forjinn_eval import OpenAIJudge, Faithfulness, SuiteRunner
+
+judge = OpenAIJudge.from_env()         # reads OPENAI_* from the environment
+# pass it to any LLM-judged metric:
+case = make_case("q", run, [Faithfulness(judge=judge, threshold=0.9), …])
+```
+
+Or wire the whole LLM **overlay** to OpenAI (auto-attaches the standard battery to
+every case) by setting a process-wide default judge before you run:
+
+```python
+from forjinn_eval import OpenAIJudge, set_default_judge, run_registered
+set_default_judge(OpenAIJudge.from_env())
+suite = run_registered(min_pass_rate=1.0)
+```
+
+A complete runnable version is [`examples/openai_judge.py`](../examples/openai_judge.py).
 
 ### 3. Fully offline / CI (zero network)
 

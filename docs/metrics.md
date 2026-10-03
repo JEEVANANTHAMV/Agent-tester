@@ -200,7 +200,7 @@ run.raw["retrieved_contexts"]  = [c1, c2]                  # Faithfulness / Hall
 run.raw["reference_tool_calls"]= ["tool", ("t2", {"k":1})] # *Correctness metrics
 ```
 
-### Pointing at a judge
+### Pointing at a judge (Forjinn)
 
 ```python
 from forjinn_eval import JudgeClient
@@ -218,9 +218,71 @@ judge = JudgeClient(
 ]
 ```
 
+### Pointing at a judge (OpenAI / any OpenAI-compatible model)
+
+When your judging model is **not** a Forjinn chatflow — e.g. OpenAI (`gpt-4o-mini`
+…), OpenRouter / Together / Groq / vLLM / Ollama / LM-Studio — use `OpenAIJudge`.
+Same metric code, no change:
+
+```python
+from forjinn_eval import OpenAIJudge, Faithfulness, AnswerRelevancy, Hallucination, GEval
+
+judge = OpenAIJudge(api_key="sk-…", model="gpt-4o-mini")      # OpenAI
+# or any OpenAI-compatible server:
+judge = OpenAIJudge(api_key="…", base_url="https://openrouter.ai/api/v1",
+                    model="anthropic/claude-3.5-sonnet")
+judge = OpenAIJudge(api_key="ollama", base_url="http://localhost:11434/v1", model="llama3.1")
+
+[
+    Faithfulness(judge=judge, threshold=0.9),
+    AnswerRelevancy(judge=judge, threshold=0.6),
+    Hallucination(judge=judge, threshold=0.5),
+    GEval(judge=judge, criteria="Be concise and accurate"),
+]
+```
+
+It's configured from env: `OPENAI_API_KEY` (required), `OPENAI_BASE_URL`
+(default `https://api.openai.com/v1`), `OPENAI_JUDGE_MODEL` (default
+`gpt-4o-mini`). `OpenAIJudge.from_env()` builds it. The judge is built with JSON
+mode (`response_format={"type":"json_object"}`) and a system prompt that forces a
+single JSON object — so every metric's `complete_json(rubric)` contract is met.
+
+#### Reading the scores
+
+Each metric returns a `CheckResult` whose `.score` is in `[0, 1]` (and `.status`
+is PASS/FAIL/ERROR/SKIP vs its `threshold`). Get scores straight from a case or a
+suite run:
+
+```python
+from forjinn_eval import ForjinnClient, make_case, SuiteRunner, OpenAIJudge
+
+judge = OpenAIJudge.from_env()
+run = ForjinnClient("https://172.16.34.7").predict("03d5…", "…")
+run.raw["retrieved_contexts"] = [c1, c2]     # ground-truth for the RAG metrics
+
+suite = SuiteRunner(suite_name="t").run([make_case(
+    "case", run,
+    [Faithfulness(judge=judge, threshold=0.9),
+     AnswerRelevancy(judge=judge, threshold=0.6),
+     Hallucination(judge=judge, threshold=0.5)],
+)])
+for c in suite.results[0].check_results:
+    print(c.name, c.status.value, c.score, c.reason)
+```
+
+A complete runnable version is [`examples/openai_judge.py`](../examples/openai_judge.py).
+
+> **Any object works as a judge.** The metric layer only calls
+> `judge.complete_json(question)` (which delegates to `complete(question)`). To use
+> a totally different LLM (Anthropic, Gemini, a local model), write a tiny class
+> with `complete(self, question) -> str` that returns valid JSON — or reuse
+> `MockJudge` / `queuing_judge` for offline tests. See [api-reference.md](api-reference.md).
+
 Or use the **overlay** — set `FORJINN_LLM_JUDGE=1` + `FORJINN_JUDGE_CHATFLOW=<id>`
 and the runner auto-attaches the standard battery + a description-seeded GEval to
-*every* case (see [configuration.md](configuration.md)).
+*every* case (see [configuration.md](configuration.md)). To auto-wire an OpenAI
+judge to the overlay, set `FORJINN_LLM_JUDGE=1` and call `set_default_judge(OpenAIJudge.from_env())`
+before running, or pass `llm_judge=` to `SuiteRunner`.
 
 ### Batteries
 

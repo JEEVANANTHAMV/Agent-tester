@@ -64,12 +64,13 @@ from .catalog import (
 )
 from .client import ForjinnClient
 from .judge import (
+    _cosine,  # noqa: F401  (re-export; used by embedding tests + direct imports)
     Embeddings,
     ForjinnTransport,
     JudgeClient,
     JudgeError,
     MockJudge,
-    _cosine,  # noqa: F401  (embedding cosine helper)
+    OpenAIJudge,
     extract_json,
     queuing_judge,
     set_default_judge,
@@ -206,6 +207,7 @@ __all__ = [
     "ForjinnTransport",
     "JudgeError",
     "MockJudge",
+    "OpenAIJudge",
     "queuing_judge",
     "set_default_judge",
     "extract_json",

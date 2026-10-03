@@ -341,6 +341,123 @@ class Embeddings:
         return _cosine(a, b)
 
 
+class OpenAIJudge(BaseJudge):
+    """An LLM judge backed by an **OpenAI-compatible** chat endpoint.
+
+    Use this when your judging model is *not* a Forjinn chatflow — e.g. any OpenAI
+    model (``gpt-4o-mini`` …), OpenRouter / Together / Groq / vLLM-OAI / LM-Studio /
+    Ollama, or a local OpenAI-compatible server. The metric layer only ever calls
+    ``complete_json(...)`` and expects a JSON object back, so the judge is built with
+    JSON mode (``response_format={"type": "json_object"}``) and a system prompt that
+    forces a single JSON object — no third-party SDK required (uses ``requests``).
+
+    Auto-configured from the environment: ``OPENAI_API_KEY`` (required), plus
+    optional ``OPENAI_BASE_URL`` (default ``https://api.openai.com/v1``) and
+    ``OPENAI_JUDGE_MODEL`` (default ``gpt-4o-mini``).
+
+    You can also use any chat client directly — the metric layer only needs an object
+    with ``complete(question) -> str`` / ``complete_json()`` — but this class wires up
+    the JSON contract for you.
+    """
+
+    DEFAULT_SYSTEM = (
+        "You are a rigorous evaluation judge. You answer EXACTLY ONE JSON object and "
+        "nothing else: no prose, no markdown, no code fences, no explanation outside "
+        "the object. Always include a short human-readable \"reason\". Use the keys "
+        "and value shapes the request specifies, and do not add any keys it did not "
+        "ask for."
+    )
+
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
+        model: str = "gpt-4o-mini",
+        *,
+        api_key_env: str = "OPENAI_API_KEY",
+        api: str = "chat",
+        temperature: float = 0.0,
+        system_prompt: Optional[str] = None,
+        max_tokens: int = 1024,
+        timeout: float = 60.0,
+        verify_ssl: bool = True,
+        retries: int = 2,
+        client=None,
+    ):
+        self.api_key = api_key or os.environ.get(api_key_env)
+        if not self.api_key:
+            raise JudgeError(
+                f"OpenAIJudge requires an API key: pass api_key= or set the {api_key_env} env var."
+            )
+        # Allow OpenRouter-style "/v1" style endpoints and bare hosts.
+        self.base_url = (base_url or os.environ.get("OPENAI_BASE_URL") or "https://api.openai.com/v1").rstrip("/")
+        self.model = model or os.environ.get("OPENAI_JUDGE_MODEL") or "gpt-4o-mini"
+        self.system_prompt = system_prompt or self.DEFAULT_SYSTEM
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        self.timeout = timeout
+        self.verify_ssl = verify_ssl
+        self.retries = retries
+        self.api = api  # "chat" (default) — reserved for a future completions path
+        self._client = client  # injectable HTTP-like client for tests
+        self.calls: List[str] = []  # last prompt sent (for debugging/tests)
+
+    @classmethod
+    def from_env(cls, **kwargs: Any) -> "OpenAIJudge":
+        """Build from env: ``OPENAI_API_KEY`` (required), ``OPENAI_BASE_URL``,
+        ``OPENAI_JUDGE_MODEL``. Any explicit kwargs override the env value."""
+        return cls(**kwargs)
+
+    def _url(self) -> str:
+        return f"{self.base_url}/chat/completions"
+
+    def complete(self, question: str, *, max_tokens: int = 1024, retries: int = 2) -> str:
+        self.calls.append(question)
+        body = {
+            "model": self.model,
+            "temperature": self.temperature,
+            "max_tokens": min(max_tokens, self.max_tokens or max_tokens),
+            "response_format": {"type": "json_object"},
+            "messages": [
+                {"role": "system", "content": self.system_prompt},
+                {"role": "user", "content": question},
+            ],
+        }
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+            "User-Agent": "forjinn-eval",
+        }
+        import requests
+
+        last: Optional[Exception] = None
+        attempt = 0
+        while attempt <= max(1, retries):
+            attempt += 1
+            try:
+                if self._client is not None:  # injected transport (tests / custom)
+                    resp = self._client.post(self._url(), headers=headers, data=json.dumps(body))
+                else:
+                    resp = requests.post(
+                        self._url(),
+                        headers=headers,
+                        data=json.dumps(body),
+                        timeout=self.timeout,
+                        verify=self.verify_ssl,
+                    )
+                if resp.status_code >= 400:
+                    last = JudgeError(f"OpenAI judge [{resp.status_code}]: {getattr(resp, 'text', '')[:300]}")
+                    continue
+                data = resp.json()
+                text = (data.get("choices") or [{}])[0].get("message", {}).get("content", "")
+                if text and text.strip():
+                    return text.strip()
+                last = JudgeError("OpenAI judge returned empty content")
+            except Exception as e:  # network / HTTP / parse
+                last = e
+        raise JudgeError(f"OpenAI judge '{self.model}' failed: {last!r}")
+
+
 def from_env() -> Optional[BaseJudge]:
     """Build a :class:`JudgeClient` from environment, or ``None`` if not configured.
 
