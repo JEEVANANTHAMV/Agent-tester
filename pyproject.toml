@@ -23,7 +23,7 @@ dynamic = ["version"]
 description = "Unit-test-style evaluation and testing toolkit for Forjinn visual-canvas agents: run an agent, capture the full node-by-node execution trace (tool calls, tokens, latency) and assert deterministic + LLM-judged metrics."
 readme = "README.md"
 requires-python = ">=3.9"
-license = { text = "MIT" }
+license = "MIT"
 authors = [
     { name = "Forjinn", email = "forjinn@example.com" },
 ]
@@ -50,7 +50,6 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Topic :: Software Development :: Testing",
     "Topic :: Software Development :: Quality Assurance",
