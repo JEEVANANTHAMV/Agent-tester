@@ -8,6 +8,9 @@ dist/
 .venv/
 venv/
 
+# setuptools-scm generated version file (do NOT track)
+src/forjinn_eval/_version.py
+
 # Tooling
 .pytest_cache/
 .mypy_cache/

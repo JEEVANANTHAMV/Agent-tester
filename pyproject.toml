@@ -1,30 +1,79 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=61.0", "setuptools-scm[toml]>=7.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+# ---------------------------------------------------------------------------
+# Version is derived from the latest git tag (setuptools-scm). Tag a release as
+# `vX.Y.Z` (e.g. `git tag v0.2.0`); sdist/wheel metadata and the runtime
+# `forjinn_eval.__version__` pick it up automatically. On a non-git source
+# distribution it falls back to the static version in pyproject.toml.
+# ---------------------------------------------------------------------------
+[tool.setuptools_scm]
+# Write the resolved version into src/forjinn_eval/_version.py at build time.
+write_to = "src/forjinn_eval/_version.py"
+# A stable, non-PEP440 string used when no tag is reachable (e.g. a git
+# archive without tags) so `import forjinn_eval` still reports a version.
+fallback_version = "0.1.0.dev0"
+# Only version tags that start with "v" and are otherwise PEP 440.
+tag_regex = "^v(?P<version>[0-9]+[0-9.]*)$"
 
 [project]
 name = "forjinn-eval"
-version = "0.1.0"
-description = "Unit-test-style evaluation and testing toolkit for Forjinn visual-canvas agents. Run an agent, capture the full node-by-node execution trace (tool calls, token usage, timing), and assert cumulative metrics."
+dynamic = ["version"]
+description = "Unit-test-style evaluation and testing toolkit for Forjinn visual-canvas agents: run an agent, capture the full node-by-node execution trace (tool calls, tokens, latency) and assert deterministic + LLM-judged metrics."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
-authors = [{ name = "Forjinn" }]
-keywords = ["llm", "agent", "evaluation", "testing", "forjinn", "ragas", "deepeval", "pytest"]
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "Topic :: Software Development :: Testing",
-    "Intended Audience :: Developers",
+authors = [
+    { name = "Forjinn", email = "forjinn@example.com" },
 ]
+maintainers = [
+    { name = "Jeevanantham V", email = "jeevanantham.v26@gmail.com" },
+]
+keywords = [
+    "llm",
+    "agent",
+    "evaluation",
+    "testing",
+    "forjinn",
+    "llmops",
+    "ragas",
+    "deepeval",
+    "pytest",
+    "ci",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Quality Assurance",
+]
+
+# Minimal runtime deps. Everything else is optional:
+#   * LLM-judge metrics only need requests (a judge Forjinn chatflow is
+#     driven over the same REST/SSE API).
+#   * Embedding metrics (SemanticSimilarity / ContextualRelevancy) use a
+#     dependency-free fallback and optionally `sentence-transformers`
+#     (see [project.optional-dependencies] embeddings).
+#   * Text quality metrics use `rapidfuzz` when present (Jaccard fallback).
 dependencies = [
     "requests>=2.28",
     "rich>=13.0",
 ]
 
-[project.optional-dependencies]
-dev = ["pytest>=7.0", "pytest-cov", "httpx>=0.24", "rapidfuzz>=3.0"]
-# Levenshtein-based string similarity (falls back to Jaccar if absent)
-text = ["rapidfuzz>=3.0"]
+[project.urls]
+Homepage = "https://github.com/JEEVANANTHAMV/Agent-tester"
+Repository = "https://github.com/JEEVANANTHAMV/Agent-tester"
+Issues = "https://github.com/JEEVANANTHAMV/Agent-tester/issues"
+Documentation = "https://github.com/JEEVANANTHAMV/Agent-tester/tree/main/docs"
+Changelog = "https://github.com/JEEVANANTHAMV/Agent-tester/releases"
 
 [project.scripts]
 forjinn-eval = "forjinn_eval.cli:main"
@@ -32,12 +81,87 @@ forjinn-eval = "forjinn_eval.cli:main"
 [project.entry-points."pytest11"]
 forjinn_eval = "forjinn_eval.plugin"
 
+[project.optional-dependencies]
+# Developer / test toolchain: pytest harness, coverage, HTTP client for tests.
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "httpx>=0.24",
+    "rapidfuzz>=3.0",
+    "mypy>=1.5",
+    "ruff>=0.4",
+]
+# Levenshtein-based string similarity (NonLLMStringSimilarity). Falls back to
+# Jaccard if absent - this extra is optional in production.
+text = ["rapidfuzz>=3.0"]
+# Real semantic embeddings for embedding-based metrics
+# (SemanticSimilarity, AnswerSimilarity, ContextualRelevancy). Without this
+# the metrics fall back to a deterministic offline bag-of-words embedding.
+embeddings = ["sentence-transformers>=2.2"]
+# Everything a maintainer needs to build, test, lint, type-check and publish.
+all = [
+    "forjinn-eval[text,embeddings]",
+    "build>=1.0",
+    "setuptools>=61.0",
+    "twine>=4.0",
+    "mypy>=1.5",
+    "ruff>=0.4",
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "httpx>=0.24",
+]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+forjinn_eval = ["py.typed"]
+
+# ---------------------------------------------------------------------------
+# Tooling
+# ---------------------------------------------------------------------------
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+# `live` tests only run when FORJINN_LLM_TESTS=1 (or the equivalent flag);
+# everything under tests/unit and tests/integration is fully offline.
 markers = [
     "live: real-LLM tests against a live Forjinn host (opt-in via FORJINN_LLM_TESTS=1)",
 ]
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+extend-exclude = ["research", "out", "build", "dist", "src/forjinn_eval/_version.py"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "SIM", # flake8-simplify
+    "RUF", # ruff-specific
+]
+ignore = [
+    "E501",  # line-length (see line-length above; kept to allow wrapping by judgement)
+    "B008",  # function call in default arg - common in dataclasses and argparse
+]
+
+[tool.mypy]
+python_version = "3.9"
+warn_unused_ignores = false
+warn_redundant_casts = true
+warn_unused_configs = true
+no_implicit_optional = true
+check_untyped_defs = false
+disallow_untyped_defs = false
+mypy_path = "src"
+packages = ["forjinn_eval"]
+# We don't need the runtime to be 100%-strict for the public API to be
+# usable; the goal is catching obvious errors without a large backlog.
+[[tool.mypy.overrides]]
+module = ["requests.*", "rich.*", "sentence_transformers.*"]
+ignore_missing_imports = true

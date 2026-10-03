@@ -156,7 +156,20 @@ from .suite import (
 )
 from .types import ForjinnError, ToolCall, UsageMetadata
 
-__version__ = "0.1.0"
+def _resolve_version() -> str:
+    """Resolve ``__version__``: prefer the build-generated ``_version.py``
+    (written by setuptools-scm from the latest git tag), then a static
+    fallback so the package imports cleanly from an untagged checkout or an
+    sdist without git metadata."""
+    try:
+        from ._version import version as _v  # type: ignore[attr-defined]  # written at build
+
+        return _v
+    except Exception:  # pragma: no cover - build file absent in some flows
+        return "0.1.0.dev0"
+
+
+__version__ = _resolve_version()
 
 
 def run_registered(
