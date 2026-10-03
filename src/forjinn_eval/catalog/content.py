@@ -2,18 +2,20 @@
 from __future__ import annotations
 
 import re
-from typing import Dict, Iterable, List, Optional, Pattern, Union, Any
+from collections.abc import Iterable
+from re import Pattern
+from typing import Any, Dict, List, Optional, Union
 
 from ..capture import AgentRun
 from .base import CheckResult, Evaluator
 
 __all__ = [
-    "OutputNotEmpty",
-    "OutputMatchesRegex",
     "OutputContains",
     "OutputDoesNotContain",
-    "OutputLengthBounds",
     "OutputJsonValid",
+    "OutputLengthBounds",
+    "OutputMatchesRegex",
+    "OutputNotEmpty",
 ]
 
 
@@ -70,21 +72,23 @@ class OutputContains(Evaluator):
         if not run.text:
             return CheckResult.error_(self.name, "no output text")
         hay = run.text if self.case_sensitive else run.text.lower()
-        missing = [s for s in self.substrings if (s if self.case_sensitive else s.lower()) not in hay]
-        if self.match == "any" and not missing:
-            return CheckResult.pass_(self.name, f"at least one of {self.substrings} present")
-        if not missing:
-            return CheckResult.pass_(self.name, f"all {len(self.substrings)} substrings present")
-        if missing and self.match == "all":
-            return CheckResult.fail_(
-                self.name,
-                f"missing substrings: {missing}",
-                score=(len(self.substrings) - len(missing)) / len(self.substrings) if self.substrings else 0.0,
-            )
-        if missing and self.match == "any":
+
+        def present(s: str) -> bool:
+            return (s if self.case_sensitive else s.lower()) in hay
+
+        if self.match == "any":
+            # PASS iff at least one substring is present; FAIL only if none are.
+            found = [s for s in self.substrings if present(s)]
+            if found:
+                return CheckResult.pass_(self.name, f"at least one of {self.substrings} present: {found}")
             return CheckResult.fail_(self.name, f"none of {self.substrings} present", score=0.0)
-        # unreachable
-        return CheckResult.pass_(self.name, "ok")
+        # match == "all": PASS iff every substring is present; else FAIL with a 0..1 partial score.
+        missing = [s for s in self.substrings if not present(s)]
+        if missing:
+            total = len(self.substrings)
+            score = (total - len(missing)) / total if total else 0.0
+            return CheckResult.fail_(self.name, f"missing substrings: {missing}", score=score)
+        return CheckResult.pass_(self.name, f"all {len(self.substrings)} substrings present")
 
 
 class OutputDoesNotContain(Evaluator):

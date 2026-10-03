@@ -8,28 +8,27 @@ from __future__ import annotations
 from forjinn_eval import (
     AgentRun,
     AllNodesFinished,
-    AvailableToolsExposed,
-    NoToolsExpected,
-    OnlyAllowedTools,
-    RequiredNodesPresent,
-    ExpectedNodeCount,
-    ModelIs,
-    StartNodePassthrough,
-    TokenBudget,
-    LatencyBudget,
-    ToolCallOrder,
-    ToolCallSetF1,
-    ToolCallCount,
-    OutputNotEmpty,
-    OutputMatchesRegex,
-    OutputContains,
-    OutputDoesNotContain,
-    OutputLengthBounds,
-    OutputJsonValid,
-    NoCostLeakage,
     AttachmentParsed,
     AttachmentUploaded,
+    ExpectedNodeCount,
+    LatencyBudget,
+    ModelIs,
+    NoCostLeakage,
+    NoToolsExpected,
+    OnlyAllowedTools,
+    OutputContains,
+    OutputDoesNotContain,
+    OutputJsonValid,
+    OutputLengthBounds,
+    OutputMatchesRegex,
+    OutputNotEmpty,
+    RequiredNodesPresent,
+    StartNodePassthrough,
+    TokenBudget,
     ToolCall,
+    ToolCallCount,
+    ToolCallOrder,
+    ToolCallSetF1,
 )
 from forjinn_eval.results import Status
 
@@ -153,9 +152,13 @@ class TestContent:
         assert _S(OutputMatchesRegex("[unclosed").evaluate(agent1_count)) == Status.ERROR.value
 
     def test_output_contains(self, agent1_count):
+        # "1" and "5" are both in the text ("1\n2\n3\n4\n5").
         assert _S(OutputContains(["1", "5"]).evaluate(agent1_count)) == Status.PASS.value
+        # "9999" is absent, so requiring *all* fails.
         assert _S(OutputContains(["1", "9999"], match="all").evaluate(agent1_count)) == Status.FAIL.value
+        # "any" passes when at least one substring is present.
         assert _S(OutputContains(["8", "9999"], match="any").evaluate(agent1_count)) == Status.FAIL.value
+        assert _S(OutputContains(["1", "9999"], match="any").evaluate(agent1_count)) == Status.PASS.value
 
     def test_output_does_not_contain(self, agent1_count):
         assert _S(OutputDoesNotContain(["ZZZZ"]).evaluate(agent1_count)) == Status.PASS.value
