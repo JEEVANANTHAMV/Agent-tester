@@ -1,12 +1,13 @@
 """ragas TopicAdherence: P/R/F1 over (topic answered AND on-topic)."""
 from __future__ import annotations
 
-from typing import Optional, Sequence
+from collections.abc import Sequence
+from typing import Optional
 
 from ..capture import AgentRun
-from ..judge import JudgeClient, as_bool, _judge_or_default
-from .base import CheckResult, Evaluator
+from ..judge import JudgeClient, _judge_or_default, as_bool
 from ._common import _cr, _f, _fmt_list, _judge_user, _nan_or_skip, _trace_text
+from .base import CheckResult, Evaluator
 
 
 class TopicAdherence(Evaluator):

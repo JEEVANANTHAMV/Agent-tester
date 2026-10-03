@@ -5,12 +5,13 @@ source) - averaged into ``[0, 1]``.
 """
 from __future__ import annotations
 
-from typing import List, Optional, Sequence
+from collections.abc import Sequence
+from typing import Optional
 
 from ..capture import AgentRun
-from ..judge import JudgeClient, as_int01, _judge_or_default  # as_int01 kept for faithful check
-from .base import CheckResult, Evaluator
+from ..judge import JudgeClient, _judge_or_default, as_int01  # as_int01 kept for faithful check
 from ._common import _cr, _f, _judge_user, _nan_or_skip, _verdict_list
+from .base import CheckResult, Evaluator
 
 
 class Summarization(Evaluator):

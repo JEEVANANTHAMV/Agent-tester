@@ -4,8 +4,8 @@ from __future__ import annotations
 from forjinn_eval import (
     AgentRun,
     Conversation,
-    Message,
     Embeddings,
+    Message,
     _cosine,
 )
 from forjinn_eval.judge import Embeddings as Emb2

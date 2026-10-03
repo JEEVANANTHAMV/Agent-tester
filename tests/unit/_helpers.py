@@ -7,7 +7,8 @@ tool calls).
 """
 from __future__ import annotations
 
-from typing import Any, List, Optional, Sequence
+from collections.abc import Sequence
+from typing import Any, List, Optional
 
 from forjinn_eval import AgentRun
 from forjinn_eval.judge import MockJudge
@@ -73,4 +74,4 @@ def single_turn_run(question: str, text: str, reference: Optional[str] = None,
     return run
 
 
-__all__ = ["canned_judge", "multi_turn_run", "single_turn_run", "_tool"]
+__all__ = ["_tool", "canned_judge", "multi_turn_run", "single_turn_run"]

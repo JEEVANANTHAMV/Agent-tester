@@ -15,8 +15,8 @@ from typing import List, Optional
 
 from ..capture import AgentRun
 from ..judge import JudgeClient, _judge_or_default
-from .base import CheckResult, Evaluator
 from ._common import _cr, _f, _judge_user, _nan_or_skip, _verdict_list
+from .base import CheckResult, Evaluator
 
 
 def _collapse_ws(s: str) -> str:
@@ -104,8 +104,8 @@ class CitationFaithfulness(Evaluator):
 
 
 __all__ = [
-    "QuotedSpansAlignment",
     "CitationFaithfulness",
-    "_find_quoted_spans",
+    "QuotedSpansAlignment",
     "_collapse_ws",
+    "_find_quoted_spans",
 ]

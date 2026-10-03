@@ -33,7 +33,7 @@ class ToolCall:
     raw: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_dict(cls, d: Any) -> "ToolCall":
+    def from_dict(cls, d: Any) -> ToolCall:
         if not isinstance(d, dict):
             return cls(raw=d if isinstance(d, dict) else {}, )
         name = d.get("name") or d.get("tool") or d.get("toolName")
@@ -72,7 +72,7 @@ class UsageMetadata:
     tool_call_tokens: int = 0
 
     @classmethod
-    def from_dict(cls, d: Optional[Dict[str, Any]]) -> "UsageMetadata":
+    def from_dict(cls, d: Optional[Dict[str, Any]]) -> UsageMetadata:
         d = d or {}
         inp = int(d.get("input_tokens") or d.get("prompt_tokens") or 0)
         out = int(d.get("output_tokens") or d.get("completion_tokens") or 0)
@@ -109,7 +109,7 @@ class TimeMetadata:
         return None
 
     @classmethod
-    def from_dict(cls, d: Optional[Dict[str, Any]]) -> "TimeMetadata":
+    def from_dict(cls, d: Optional[Dict[str, Any]]) -> TimeMetadata:
         d = d or {}
         return cls(
             start_ms=d.get("start"),
@@ -134,12 +134,12 @@ class Message:
 
     role: str = "human"
     content: str = ""
-    tool_calls: List["ToolCall"] = field(default_factory=list)
+    tool_calls: List[ToolCall] = field(default_factory=list)
     retrieval_contexts: List[str] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_dict(cls, d: Any) -> "Message":
+    def from_dict(cls, d: Any) -> Message:
         if not isinstance(d, dict):
             return cls(role=str(d) if d else "", content=str(d))
         role = str(d.get("role", "human")).lower()
@@ -182,14 +182,14 @@ class Conversation:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_messages(cls, messages) -> "Conversation":
+    def from_messages(cls, messages) -> Conversation:
         conv = cls()
         for m in messages or []:
             conv.append(m)
         return conv
 
     @classmethod
-    def from_runs(cls, *runs) -> "Conversation":
+    def from_runs(cls, *runs) -> Conversation:
         from .capture import AgentRun  # local import avoids a cycle during package init
 
         conv = cls()
@@ -203,15 +203,15 @@ class Conversation:
                 conv.messages.append(Message(role="ai", content=r.text, tool_calls=tool_calls))
         return conv
 
-    def append(self, message: "Message | Dict[str, Any]") -> "Message":
+    def append(self, message: Message | Dict[str, Any]) -> Message:
         m = message if isinstance(message, Message) else Message.from_dict(message)
         self.messages.append(m)
         return m
 
-    def add_human(self, content: str) -> "Message":
+    def add_human(self, content: str) -> Message:
         return self.append(Message(role="human", content=content))
 
-    def add_ai(self, content: str, tool_calls=None) -> "Message":
+    def add_ai(self, content: str, tool_calls=None) -> Message:
         return self.append(Message(role="ai", content=content, tool_calls=list(tool_calls or [])))
 
     @property

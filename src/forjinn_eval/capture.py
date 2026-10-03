@@ -20,8 +20,9 @@ from __future__ import annotations
 
 import codecs
 import json
+from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from .types import (
     EV_CALLED_TOOLS,
@@ -29,14 +30,13 @@ from .types import (
     EV_FLOW_EVENT,
     EV_FLOW_EXECUTED_DATA,
     EV_METADATA,
-    EV_NEXT_AGENT_FLOW,
     EV_TOKEN,
     EV_USAGE,
+    STATUS_FINISHED,
     Conversation,
     Message,
-    STATUS_FINISHED,
-    ToolCall,
     TimeMetadata,
+    ToolCall,
     UsageMetadata,
 )
 
@@ -94,7 +94,7 @@ class Node:
         return out if out is not None else ""
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> "Node":
+    def from_dict(cls, d: Dict[str, Any]) -> Node:
         data = d.get("data") or {}
         output = dict(data.get("output") or {})
         inp = dict(data.get("input") or {})
@@ -164,7 +164,7 @@ class AgentRun:
 
     # ---- construction -------------------------------------------------------
     @classmethod
-    def from_conversation(cls, conversation: "Conversation | List[Dict[str, Any]] | List['Message']") -> "AgentRun":
+    def from_conversation(cls, conversation: Conversation | List[Dict[str, Any]] | List[Message]) -> AgentRun:
         """Build an :class:`AgentRun` from a multi-turn transcript.
 
         The whole conversation is exposed via :meth:`turns`; the *final*
@@ -188,7 +188,7 @@ class AgentRun:
         else:
             run.text = ""
             run.called_tools = list(conv.tool_calls)
-        if "reference" in conv.metadata and conv.metadata["reference"]:
+        if conv.metadata.get("reference"):
             run.raw["reference"] = conv.metadata["reference"]
         run._conversation = conv
         return run
@@ -213,7 +213,7 @@ class AgentRun:
         return self.conversation.retrieval_contexts(upto=turn_index)
 
     @classmethod
-    def from_nonstream(cls, chatflow_id: str, payload: Dict[str, Any]) -> "AgentRun":
+    def from_nonstream(cls, chatflow_id: str, payload: Dict[str, Any]) -> AgentRun:
         run = cls(
             chatflow_id=chatflow_id,
             streaming=False,
@@ -242,7 +242,7 @@ class AgentRun:
         cls,
         chatflow_id: str,
         events: List[StreamEvent],
-    ) -> "AgentRun":
+    ) -> AgentRun:
         run = cls(chatflow_id=chatflow_id, streaming=True, stream_events=list(events))
         last_executed: List[Dict[str, Any]] = []
         for ev in events:

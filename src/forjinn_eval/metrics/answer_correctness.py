@@ -3,12 +3,13 @@ answer. Reference comes from ``run.reference`` (set via ``run.raw['reference']``
 without one the metric SKIPs."""
 from __future__ import annotations
 
-from typing import List, Optional, Sequence
+from collections.abc import Sequence
+from typing import List, Optional
 
 from ..capture import AgentRun
 from ..judge import JudgeClient, _judge_or_default
-from .base import CheckResult, Evaluator
 from ._common import _cr, _f, _fbeta, _fmt_list, _judge_user, _nan_or_skip, _string_similarity
+from .base import CheckResult, Evaluator
 
 
 class AnswerCorrectness(Evaluator):

@@ -6,8 +6,8 @@ from __future__ import annotations
 from typing import Optional
 
 from ..capture import AgentRun
-from .base import CheckResult, Evaluator
 from ._common import _cr, _nan_or_skip, _string_similarity
+from .base import CheckResult, Evaluator
 
 
 class ExactMatch(Evaluator):
@@ -72,4 +72,4 @@ class NonLLMStringSimilarity(Evaluator):
         return _cr(self.name, score, self.threshold, details={"score": score})
 
 
-__all__ = ["ExactMatch", "StringPresence", "NonLLMStringSimilarity"]
+__all__ = ["ExactMatch", "NonLLMStringSimilarity", "StringPresence"]

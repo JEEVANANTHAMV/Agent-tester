@@ -3,12 +3,13 @@ pre-written steps). The judge self-scores 0-10; final = score / 10 in [0,1].
 This is the "build your own LLM metric" escape hatch."""
 from __future__ import annotations
 
-from typing import List, Optional, Sequence
+from collections.abc import Sequence
+from typing import List, Optional
 
 from ..capture import AgentRun
 from ..judge import JudgeClient, _judge_or_default
-from .base import CheckResult, Evaluator
 from ._common import _cr, _f, _fmt_list, _judge_user, _tool_repr
+from .base import CheckResult, Evaluator
 
 
 class GEval(Evaluator):

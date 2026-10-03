@@ -13,12 +13,13 @@ explicitly.
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Dict, List, Optional, Sequence
+from collections.abc import Sequence
+from typing import List, Optional
 
 from ..capture import AgentRun
 from ..types import ToolCall
-from .base import CheckResult, Evaluator
 from ._common import _cr, _nan_or_skip
+from .base import CheckResult, Evaluator
 
 
 def _key(tc: ToolCall) -> tuple:

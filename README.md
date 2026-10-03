@@ -3,11 +3,16 @@
 **Unit-test-style evaluation & testing toolkit for Forjinn visual-canvas agents.**
 
 Build an agent in [Forjinn](https://forjinn.com) (its visual canvas builder), then
-treat every agent run like a unit test: **run the agent → capture the full
-node-by-node execution trace → assert cumulative metrics → get a pass/fail report
-you can run in CI.**
+treat every agent run like a unit test:
 
-Forjinn exposes each canvas agent as a REST endpoint you drive with `curl`:
+```
+run the agent  →  capture the full node-by-node execution trace  →
+assert cumulative metrics (deterministic + LLM-judged)  →
+pass/fail report you can gate CI on (Markdown / JSON / JUnit)
+```
+
+Forjinn exposes each canvas agent as a REST endpoint you normally drive with
+`curl`:
 
 ```bash
 curl https://172.16.34.7/api/v1/prediction/<chatflowId> \
@@ -15,72 +20,87 @@ curl https://172.16.34.7/api/v1/prediction/<chatflowId> \
      -H "Content-Type: application/json"
 ```
 
-`forjinn-eval` is the programmatic + repeatable + *cumulative* version of that:
-it speaks that API (streaming SSE **and** non-streaming), normalises the rich
+`forjinn-eval` is the **programmatic, repeatable and cumulative** version of
+that: it speaks that API (streaming SSE *and* non-streaming), normalises the rich
 response into a single **`AgentRun`** artefact, and gives you **two catalogs** —
-a set of **deterministic** evaluators (fast, no LLM, CI-safe) and a set of
-**LLM-judged** evaluators (Faithfulness, Answer Relevancy, Hallucination,
-GEval, …) that you can point at *your own* judge model — plus pass-rate / token
-/ latency rollups across many runs. Like Flowise, it supports image + file
-upload with server-side parsing.
 
-> **Where the results come from.** Each Forjinn run returns a
-> `agentFlowExecutedData` array — one entry per canvas node (Start → Agent → …),
+- **Deterministic evaluators** — fast, no LLM, reproducible, safe to gate CI on
+  (structure, tokens, latency, tool order, content regex, safety).
+- **LLM-judged evaluators** — the semantic metrics (Faithfulness, Answer
+  Relevancy, Hallucination, Plan Quality, …) that point at *your own* judge
+  model — usually the same self-hosted vLLM Forjinn already runs.
+
+Plus pass-rate / token / latency rollups, per-tag grouping, and offline mode so
+the whole suite runs in CI with **zero network**.
+
+> **Where the results come from.** Each Forjinn run returns an
+> `agentFlowExecutedData` array — one entry per canvas node (Start → Agent → …)
 > with each node's `status`, `input`, `output`, per-node `usageMetadata`
-> (token counts), `timeMetadata` (timing), and `calledTools`. That is the
-> "complete architecture" of a run, and it is exactly what this library evaluates
-> — so your assertions go beyond the final text down to *how* the workflow
-> executed.
+> (token counts), `timeMetadata` (timing) and `calledTools`. That is the
+> complete architecture of a run, and it is exactly what this library evaluates —
+> so assertions go beyond the final text, down to *how* the workflow executed.
 
 ---
 
-## Why this (and how it relates to the big four)
+## Highlights
 
-This is a cumulative set of results that draws on the same ideas as:
-
-| Project | What we took from it |
+| Capability | What it means |
 |---|---|
-| [deepeval](https://github.com/confident-ai/deepeval) | `assert_test` / threshold pass-fail, a pytest plugin that scopes a *trace* to each test, flaky-metric handling, JSON/SQLite exports. |
-| [ragas](https://github.com/vibrantlabsai/ragas) | *Metric = the atom* (`score(sample)`), required-field projection per metric, **mean per-metric aggregate**, LLM-judge vs heuristic split. |
-| [awslabs/agent-evaluation](https://github.com/awslabs/agent-evaluation) | `Target.invoke(prompt) -> TestResult` minimal contract, pre/post `Hook` for side-effect assertions, `Plan` orchestration + exit-code gate. |
-| [giskard](https://github.com/Giskard-AI/giskard-oss) | 4-state ladder **PASS / FAIL / ERROR / SKIP** with priority rollup, `Trace` of `Interaction{inputs, outputs, metadata}`, `suite.group_by(tag)`, JUnit XML export, k-of-N runs. |
+| **Trace-level assertions** | Evaluate every canvas node, not just the final text. |
+| **Two-bar testing** | Deterministic baseline gate *plus* optional LLM-judged semantic bar. |
+| **Your own judge** | The judge is a Forjinn chatflow driven over the *same* API/SSE path. |
+| **Offline-first** `FORJINN_OFFLINE=1` | Replay fixtures + a permissive judge; full catalog runs with no network. |
+| **Cumulative rollups** | Pass/fail/error/skip + per-evaluator + token/latency totals + per-tag. |
+| **CI-native** | Markdown / JSON / JUnit exports, pass-rate gate, exit codes, a pytest plugin. |
+| **Multi-turn** | `Conversation`/`Message` + `AgentRun.from_conversation` + conversational metrics. |
+| **No heavy deps** | Runtime needs only `requests` + `rich`; LLM/embedding extras are optional. |
 
-Note the **LLM-judged** catalog below is a first-party re-implementation of the
-exact metrics these repos are known for — same algorithms, prompts and scoring
-math — ported onto `AgentRun` instead of importing their SDKs.
-
-**Our differentiator for "unit test your agent":** you choose the bar. The
-*deterministic* evaluators (no LLM — fast, reproducible, safe to gate CI on) are
-the baseline: an agent that must never leak cost figures, must call its MCP
-tools in a specific order, must stay under a token/latency budget and must
-finish every canvas node — all plain assertions. When you need a semantic bar
-("is this answer *faithful* to the context it retrieved?", "did it actually
-*accomplish the goal*?"), the **LLM-judged** catalog gives you the same metrics
-the big libraries ship — re-implemented first-party so they operate on your
-`AgentRun` with no extra SDK — and you supply the judge (often the same
-self-hosted vLLM Forjinn already runs).
+It deliberately mirrors the design of the big four — [deepeval](https://github.com/confident-ai/deepeval)
+(assertion gates, pytest plugin), [ragas](https://github.com/explodinggradients/ragas)
+(*metric = the atom*, per-field projection, mean aggregate),
+[awslabs/agent-evaluation](https://github.com/awslabs/agent-evaluation)
+(`Target.invoke → TestResult` contract, hooks, exit-code gate) and
+[giskard](https://github.com/Giskard-AI/giskard-oss) (PASS/FAIL/ERROR/SKIP ladder,
+trace, JUnit export) — with the LLM-judged catalog **re-implemented
+first-party** (no `ragas`/`deepeval` imports) so each metric runs directly on your
+`AgentRun`.
 
 ---
 
 ## Install
 
-```bash
-pip install forjinn-eval          # or, from a checkout:
-pip install -e .                  # dev: pip install -e .[dev]
-```
-
-Requires Python ≥ 3.9. Dependencies: `requests`, `rich`.
-
-Set the builder host it points at (default `https://172.16.34.7`):
+### From PyPI (once published)
 
 ```bash
-export FORJINN_HOST="https://172.16.34.7"
-# optional JWT: export FORJINN_TOKEN="eyJ..."
+pip install forjinn-eval          # minimal: requests + rich
+pip install forjinn-eval[text]    # + Levenshtein string similarity (rapidfuzz)
+pip install forjinn-eval[embeddings]  # + real semantic embeddings (sentence-transformers)
+pip install forjinn-eval[all]     # everything a maintainer needs
 ```
+
+### From this repository
+
+```bash
+pip install git+https://github.com/JEEVANANTHAMV/Agent-tester.git@main   # latest
+pip install git+https://github.com/JEEVANANTHAMV/Agent-tester.git@v0.2.0 # a release tag
+```
+
+### Developer install (editable)
+
+```bash
+git clone https://github.com/JEEVANANTHAMV/Agent-tester.git && cd Agent-tester
+pip install -e ".[all]"         # editable + dev tooling (pytest, mypy, ruff, …)
+```
+
+Requires **Python ≥ 3.9** (3.9–3.12 tested in CI).
+
+> The version comes from the latest git tag (`setuptools-scm`); `v0.2.0` →
+> `forjinn_eval.__version__ == "0.2.0"`. Untagged checkouts report a local
+> `0.1.0.dev…` build.
 
 ---
 
-## Quick start
+## 30-second quick start
 
 ```python
 from forjinn_eval import (
@@ -89,27 +109,26 @@ from forjinn_eval import (
     TokenBudget, LatencyBudget,
 )
 
-client = ForjinnClient("https://172.16.34.7")   # noproxy + no SSL-verify by default
+client = ForjinnClient("https://172.16.34.7")     # noproxy + no SSL-verify by default
 
 # 1) run the agent (one line = what your curl does)
 run = client.predict(
-    "03d5abc5-6ecd-4891-a9a1-364aefb33a50",     # agent: no tools
+    "03d5abc5-6ecd-4891-a9a1-364aefb33a50",       # agent chatflow id: no tools
     "Count from 1 to 5, one number per line.",
 )
 print(run.text)                 # "1\n2\n3\n4\n5"
 print(run.node_names)           # ['startAgentflow', 'agentAgentflow']
-print(run.usage.to_dict())      # {'input_tokens': ..., 'output_tokens': 10, ...}
+print(run.usage.to_dict())      # {'input_tokens': …, 'output_tokens': 10, …}
 
-# 2) assert cumulative metrics (a unit test)
+# 2) assert cumulative metrics (a single unit test)
 case = make_case(
-    "agent-counts-1-to-5",
-    run,
+    "agent-counts-1-to-5", run,
     [
-        AllNodesFinished(),                                   # every canvas node FINISHED
-        OutputMatchesRegex(r"(?m)^1\n2\n3\n4\n5$"),           # exact expected output
-        NoToolsExpected(),                                    # guard: no stray tool calls
-        TokenBudget(output_tokens=25),                        # cumulative token budget
-        LatencyBudget(max_ms=15000),                          # agent-node timing budget
+        AllNodesFinished(),                                  # every canvas node FINISHED
+        OutputMatchesRegex(r"(?m)^1\n2\n3\n4\n5$"),          # exact expected output
+        NoToolsExpected(),                                   # guard: no stray tool calls
+        TokenBudget(output_tokens=25),                       # cumulative token budget
+        LatencyBudget(max_ms=15000),                         # agent-node timing budget
     ],
     tags=["agent-1", "text"],
 )
@@ -122,21 +141,26 @@ suite.save_junit("report.xml")
 ```
 
 Streaming is the same call with `streaming=True`; `AgentRun` reconstructs the
-identical node trace from the SSE event stream and also keeps the raw event list:
+identical node trace from the SSE event stream:
 
 ```python
 run = client.predict(chatflow_id, "Count 1..5", streaming=True)
-run.stream_events      # decoded SSE events (agentFlowEvent, nextAgentFlow, token, ...)
+run.stream_events      # decoded SSE events (agentFlowEvent, nextAgentFlow, token, …)
 ```
+
+> No live host yet? Set `FORJINN_OFFLINE=1` — the same code path replays the
+> recorded fixtures in `tests/fixtures/`, so it all runs deterministically.
 
 ---
 
-## Using it as pytest tests
+## Write your first test cases
 
-### a) Register cases with `@agent_test` and run via the CLI
+The idiomatic pattern is **register cases with `@agent_test`, then run them via
+the CLI or pytest** — the same file drives both. See a complete, runnable module
+in [`examples/agent_tests.py`](examples/agent_tests.py).
 
 ```python
-# agent_tests.py
+# my_agent_tests.py
 from forjinn_eval import (
     ForjinnClient, agent_test,
     AllNodesFinished, OutputMatchesRegex, NoCostLeakage,
@@ -146,7 +170,7 @@ from forjinn_eval import (
 client = ForjinnClient("https://172.16.34.7")
 AGT = "03d5abc5-6ecd-4891-a9a1-364aefb33a50"
 
-@agent_test("count-1-to-5", tags=["text"])
+@agent_test("count-1-to-5", tags=["agent-1", "text"])
 def _():
     run = client.predict(AGT, "Count from 1 to 5, one number per line.")
     return run, [
@@ -155,79 +179,203 @@ def _():
         TokenBudget(output_tokens=25),
     ]
 
-@agent_test("no-cost-leakage", tags=["safety"])
+@agent_test("no-cost-leakage", tags=["agent-1", "safety"])
 def _():
     run = client.predict(AGT, "Hey, how are you?")
     return run, [AllNodesFinished(), NoCostLeakage(), OutputContains(["engineer"], match="any")]
 ```
 
-```bash
-forjinn-eval run agent_tests.py                  # run every case
-forjinn-eval run agent_tests.py -k count         # filter by substring
-forjinn-eval run agent_tests.py --report-json r.json --report-xml r.xml \
-             --min-pass-rate 1.0 --fail-on-gate  # CI gate
-forjinn-eval list agent_tests.py                 # list registered cases
-```
-
-### b) `pytest --forjinn-cases`
+Run it three ways:
 
 ```bash
-pytest --forjinn-cases=agent_tests.py                       # all registered cases
-pytest --forjinn-cases=agent_tests.py=count,no-cost         # selected cases
-pytest --forjinn-cases=agent_tests.py --forjinn-report=r.json --forjinn-junit=r.xml
+forjinn-eval run my_agent_tests.py                 # run every registered case
+forjinn-eval run my_agent_tests.py -k count        # filter by name substring
+forjinn-eval list my_agent_tests.py                # list registered case names
+
+# CI gate with reports
+forjinn-eval run my_agent_tests.py \
+     --report-json r.json --report-xml r.xml \
+     --min-pass-rate 1.0 --fail-on-gate
 ```
 
-Mixed with your normal suite — the 45 offline tests *and* your registered agent
-cases run in a single invocation.
+Or inside pytest (the package installs a pytest plugin):
 
-### c) Inline pytest functions
+```bash
+pytest --forjinn-cases=my_agent_tests.py                    # all registered cases
+pytest --forjinn-cases=my_agent_tests.py=count,no-cost      # selected cases
+pytest --forjinn-cases=my_agent_tests.py --forjinn-report=r.json --forjinn-junit=r.xml
+```
+
+Or inline plain pytest:
 
 ```python
 def test_agent_counts():
     from forjinn_eval import ForjinnClient, OutputMatchesRegex, make_case, SuiteRunner
-    run = ForjinnClient("https://172.16.34.7").predict("03d5abc5-...", "Count 1..5")
+    run = ForjinnClient("https://172.16.34.7").predict("03d5abc5-…", "Count 1..5")
     sr = SuiteRunner(suite_name="t").run([
         make_case("t", run, [OutputMatchesRegex(r"(?m)^1\n2\n3\n4\n5$")])
     ])
     assert sr.failed == 0 and sr.errors == 0
 ```
 
-Set `FORJINN_OFFLINE=1` to evaluate recorded fixtures instead of the network —
-this is what the repo's own CI and examples use, so your unit tests never need a
-live host.
+A deep, worked guide with many patterns — including reference/LLM cases, custom
+evaluators, composition, budgets, multi-turn and the CI gate — is in
+[**docs/writing-tests.md**](docs/writing-tests.md).
 
 ---
 
-## The Evaluator catalog
+## The CLI
 
-Each evaluator is an *atom*: it reads a slice of an `AgentRun` and returns a
-4-state `CheckResult` (`PASS` / `FAIL` / `ERROR` / `SKIP`). They're grouped by
-kind.
+```
+forjinn-eval {run | list | smoke | web-scenarios}
+```
 
-| Kind | Evaluator | What it asserts |
+| Command | Purpose |
+|---|---|
+| `run <module.py>` | Run `@agent_test` cases from a file. Options: `-k SUB` (repeatable filter), `--parallel N`, `--suite-name S`, `--report-json/--report-xml/--report-md`, `--min-pass-rate F`, `--fail-on-gate`. |
+| `list <module.py>` | Print the registered case names in a module. |
+| `smoke` | Offline smoke against the bundled recorded samples (no network). `--report PATH.json`. |
+| `web-scenarios` | Drive the **full metric catalog** against Forjinn-web scenarios. `--offline` (default) replays fixtures; `--online --host URL --token T` hits the live builder; `--include-persona` adds a multi-turn persona conversation; same report/gate options. |
+
+Exit codes: `0` = success (and gate met, if `--fail-on-gate`), `2` = failures/errors
+or a missed pass-rate gate.
+
+```bash
+forjinn-eval smoke                                   # offline smoke, always works
+forjinn-eval web-scenarios --offline                 # full catalog, offline
+FORJINN_LLM_JUDGE=1 FORJINN_OFFLINE=1 forjinn-eval smoke   # LLM catalog demo (mock judge)
+```
+
+---
+
+## Configuration (environment variables)
+
+Everything is driven by environment variables — no config file required.
+
+| Variable | Default | Purpose |
 |---|---|---|
-| structural | `AllNodesFinished` | every canvas node reached `FINISHED` (none FAILED/INPROGRESS) |
-| structural | `RequiredNodesPresent` | the node set contains `start`/`agent`/`retrieval`/… |
-| structural | `ExpectedNodeCount` | exactly ≥ / == N nodes |
-| structural | `ModelIs` | the agent node used the expected `modelName` (sanity + "ran the right agent") |
-| structural | `StartNodePassthrough` | the Start node echoed `question` unchanged (wiring smoke test) |
-| performance | `TokenBudget(input/output/total_tokens)` | cumulative token usage within limits |
+| `FORJINN_HOST` | `https://172.16.34.7` | Base URL of your Forjinn builder. |
+| `FORJINN_TOKEN` | — | Optional JWT / API bearer token for the builder. |
+| `FORJINN_OFFLINE` | `0` | `1` → replay recorded fixtures + a permissive judge. **No network.** |
+| `FORJINN_LLM_JUDGE` | `0` | `1` → auto-attach the standard LLM battery (Answer Relevancy, Faithfulness, Hallucination, Prompt Alignment, Bias, Toxicity) + a description-seeded GEval to every case. |
+| `FORJINN_JUDGE_CHATFLOW` | — | Chatflow id of a Forjinn judge agent (required for a *real* judge; `MockJudge` when `FORJINN_OFFLINE`). |
+| `FORJINN_JUDGE_BASE_URL` | = `FORJINN_HOST` | Separate host for the judge (if it lives elsewhere). |
+| `FORJINN_JUDGE_STREAMING` | `0` | `1` → drive the judge over the SSE streaming path. |
+| `FORJINN_LLM_TESTS` | — | `1` → run the opt-in **real-LLM** tests (`pytest -m live`). Never on in default CI. |
+| `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Model for `Embeddings` *if* `sentence-transformers` is installed (`[embeddings]` extra). |
+
+### Example environments
+
+```bash
+# 1) Live agent tests against a builder (no LLM judge)
+export FORJINN_HOST="https://172.16.34.7"
+export FORJINN_TOKEN="eyJ…"            # if the builder is authed
+forjinn-eval run my_agent_tests.py
+
+# 2) Same, but with a real LLM judge (a Forjinn chatflow that returns JSON)
+export FORJINN_LLM_JUDGE=1
+export FORJINN_JUDGE_CHATFLOW="11111111-2222-3333-4444-555555555555"
+export FORJINN_JUDGE_STREAMING=1
+
+# 3) Fully offline / CI (no network, permissive judge)
+export FORJINN_OFFLINE=1
+export FORJINN_LLM_JUDGE=1              # optional: also run the LLM catalog
+pytest -q
+
+# 4) Real-LLM suite against a live judge (opt-in, not in default CI)
+FORJINN_LLM_TESTS=1 FORJINN_JUDGE_CHATFLOW=<id> FORJINN_JUDGE_STREAMING=1 pytest -m live
+```
+
+---
+
+## The evaluator catalogs
+
+Every evaluator is an **atom**: it reads a slice of an `AgentRun` and returns a
+4-state `CheckResult` (`PASS` / `FAIL` / `ERROR` / `SKIP`). A `FAIL` is a real
+assertion failure; a `SKIP` means the metric's input was absent (no judge, no
+retrieved context, no reference) — never silently a pass.
+
+### Deterministic catalog (no LLM — the CI baseline)
+
+| Kind | Evaluator | Asserts |
+|---|---|---|
+| structural | `AllNodesFinished` | every canvas node reached `FINISHED` |
+| structural | `RequiredNodesPresent(nodes)` | the node set contains the expected roles |
+| structural | `ExpectedNodeCount(n, minimum=False)` | node count ≥ / == `n` |
+| structural | `ModelIs(model)` | the agent node used the expected model |
+| structural | `StartNodePassthrough` | Start node echoed `question` unchanged |
+| performance | `TokenBudget(input/output/total/tool_call_tokens)` | cumulative token usage within limits |
 | performance | `LatencyBudget(max_ms)` | agent-node `timeMetadata.delta` within budget |
-| tool | `ToolCallOrder(expected)` | tool calls fired in the expected order (with or without args) |
-| tool | `ToolCallSetF1(expected, threshold)` | unordered F1 over the set of called tool names |
-| tool | `OnlyAllowedTools(allowed)` | every called tool is in the allow-list (anti-injection guard) |
+| tool | `ToolCallOrder(expected)` | tool calls fired in the expected order |
+| tool | `ToolCallSetF1(expected, threshold)` | unordered F1 over called tool names |
+| tool | `OnlyAllowedTools(allowed)` | every called tool is in the allow-list (anti-injection) |
 | tool | `ToolCallCount(min, max)` | tool-invocation count within bounds |
 | tool | `NoToolsExpected` | no tools called at all |
-| tool | `AvailableToolsExposed` | configured MCP tools are exposed in `availableTools` |
+| tool | `AvailableToolsExposed(tools)` | configured MCP tools are exposed |
 | content | `OutputNotEmpty` | final text is non-empty |
 | content | `OutputMatchesRegex(pattern)` | final text matches a regex |
 | content | `OutputContains(subs, match=any/all)` | substrings present |
-| content | `OutputDoesNotContain(forbidden)` | substrings *absent* |
+| content | `OutputDoesNotContain(forbidden)` | substrings absent |
 | content | `OutputLengthBounds(min, max)` | text length within limits |
 | content | `OutputJsonValid(schema=None)` | final text parses as JSON (optionally schema-valid) |
-| safety | `NoCostLeakage` | no currency *figures*/codes in the output (fits a "time, never cost" agent) |
-| attachment | `AttachmentParsed(contains, min_items)` | parsed attachment payload non-empty + expected markers present |
-| attachment | `AttachmentUploaded(filenames)` | the expected files were recorded as uploaded |
+| text | `PatternMatch(pattern)` / `BleuScore` / `RougeScore` / `ChrfScore` | string quality vs reference |
+| text | `SemanticSimilarity` / `AnswerSimilarity` / `PatternMatch` | embedding-based similarity (offline fallback) |
+| loop | `AgentLoopDetection` | the agent did not get stuck repeating itself |
+| tool | `ToolCallAccuracy` / `ToolCorrectness` / `ArgumentCorrectness` | deterministic tool/argument checks |
+| safety | `NoCostLeakage` | no currency figures/codes in the output |
+| attachment | `AttachmentParsed` / `AttachmentUploaded` | parsed upload payload / expected files |
+
+### LLM-judged catalog (semantic bar — point at your judge)
+
+The judge is **not** a separate SDK — it is a **Forjinn chatflow** you build in
+the same builder (a small text-chat canvas with a "judge"-style system prompt,
+any model). Every judge call goes through the *same* Forjinn prediction API
+(including SSE streaming).
+
+| Metric | Source | Score |
+|---|---|---|
+| `Faithfulness` | ragas | fraction of answer statements inferred from context |
+| `AnswerRelevancy` | ragas | mean of `n` judge samples (0–1) |
+| `AnswerRelevancyDeepeval` | deepeval | relevant output statements / total |
+| `AnswerCorrectness` | ragas | `0.75·F1(claims) + 0.25·string-sim` vs reference |
+| `FactualCorrectness` | ragas | verify claims vs reference; P/R/F-beta |
+| `TopicAdherence` | ragas | P/R/F1 over (topic answered AND on-topic) |
+| `AnswerAccuracy` | ragas | claim-level accuracy vs reference |
+| `NoiseSensitivity` | ragas | robustness to irrelevant context chunks |
+| `ContextualPrecision`/`Recall`/`Relevancy` | ragas/deepeval | per-chunk retrieval quality |
+| `ContextEntityRecall` | deepeval | fraction of reference entities in context |
+| `CitationFaithfulness` | — | per-citation support in context |
+| `QuotedSpansAlignment` | — | quoted span ↔ source span alignment |
+| `Hallucination` | deepeval | context chunks *not* contradicted by output |
+| `Bias` / `Toxicity` | deepeval | fraction of opinions judged unbiased / non-toxic |
+| `PIILeakage` | deepeval | fraction of statements that are not PII |
+| `TaskCompletion` | deepeval | extract task+outcome, judge 0–1 |
+| `GoalAccuracy(desired_outcome)` | ragas | infer goal+end-state, judge 0/1 |
+| `PromptAlignment(instructions)` | deepeval | fraction of instructions followed |
+| `PlanAdherence` / `PlanQuality` / `StepEfficiency` | deepeval | scale-scored plan/efficiency rubrics |
+| `ConversationCompleteness` / `KnowledgeRetention` | — | multi-turn completeness & knowledge carry-over |
+| `Summarization` | — | faithfulness + coverage of a summary |
+| `ToolUse(available_tools)` | deepeval | `min(mean selection, mean arg-correctness)` |
+| `ArgumentCorrectness` | — | arguments of called tools vs expected |
+| `GEval(criteria)` / `GEval(evaluation_steps)` | deepeval | judge 0–10 → `/10`; `strict_mode` → binary |
+| `Groundedness` / `Contradiction` / `Conformity` / `AnswerRelevance` | giskard | LLM `{"reason","passed"}` |
+| `LLMJudge(instruction)` | giskard | fully custom rubric → LLM `{"reason","passed"}` |
+| `Misuse` / `NonAdvice` / `RoleViolation` / `RoleAdherence` | — | safety & persona adherence |
+
+> **No judge configured?** LLM metrics **SKIP** (never FAIL) when their required
+> input is absent — so they can sit in a shared case list without a live judge.
+
+### Composition
+
+Combine evaluators into gates:
+
+```python
+from forjinn_eval import AllOf, AnyOf, Not, NoCostLeakage, OutputContains
+
+gate_all = AllOf(NoCostLeakage(), OutputMatchesRegex(r"…"))   # every must pass
+gate_any = AnyOf(OutputContains(["ok"]), OutputContains(["done"]))  # at least one
+gate_not = Not(NoCostLeakage())                                # must NOT be true
+```
 
 ### Custom evaluators
 
@@ -240,61 +388,21 @@ class AnswerHasGreeting(Evaluator):
     kind = "content"
     def evaluate(self, run):
         ok = any(w in run.text.lower() for w in ("hello", "hi ", "how are you"))
-        return CheckResult.pass_(self.name, "greeting found") if ok else \
-               CheckResult.fail_(self.name, "no greeting in output")
+        return (CheckResult.pass_(self.name, "greeting found") if ok
+                else CheckResult.fail_(self.name, "no greeting in output"))
 ```
+
+A full, annotated catalog + when-to-use guidance is in
+[**docs/metrics.md**](docs/metrics.md).
 
 ---
 
-## The LLM-judged catalog
+## Run the LLM catalog without editing every case
 
-The table above is the deterministic catalog. Beyond it, `forjinn_eval` ships a
-**second catalog of semantic metrics** — the same well-known evaluators the big
-libraries provide, **re-implemented first-party** (no `ragas`/`deepeval`
-imports) so each one runs directly on your `AgentRun`. They call a judge model
-you provide.
-
-The judge is **not** a separate SDK or API - it's a **Forjinn agent** you build
-in the same builder (a small text-chat canvas with a "judge"-style system prompt,
-any model). You get its chatflow id and that's it. Every judge call then goes
-through the *same* Forjinn prediction API the agents under test use, including
-the **SSE streaming** path.
-
-```python
-from forjinn_eval import (
-    JudgeClient,                 # a judge that is a Forjinn chatflow
-    Faithfulness, AnswerRelevancy, Hallucination, PromptAlignment,
-    Bias, Toxicity, GEval,
-)
-
-# point the judge at any Forjinn chatflow on any host (often the same builder)
-judge = JudgeClient(
-    judge_chatflow="11111111-2222-3333-4444-555555555555",  # your judge agent
-    base_url="https://172.16.34.7",
-    streaming=True,                 # use the Forjinn SSE path
-)
-run = client.predict(chatflow, "Summarise this document: ...")
-
-run.raw["retrieved_contexts"] = [chunk_text]   # needed by faithfulness/hallucination
-case = make_case("quality-gate", run, [
-    AllNodesFinished(),
-    Faithfulness(judge=judge, threshold=0.9),     # statements inferable from context
-    AnswerRelevancy(judge=judge, threshold=0.6),  # does it answer the question
-    Hallucination(judge=judge, threshold=0.5),    # doesn't contradict context
-    PromptAlignment(judge=judge,
-                    instructions=["stay under 200 words", "cite the page number"]),
-    Bias(judge=judge), Toxicity(judge=judge),
-    GEval(judge=judge, criteria="Be concise, accurate, and only use the given context"),
-], tags=["quality"])
-```
-
-### How to run the LLM catalog without editing every case
-
-Set `FORJINN_LLM_JUDGE=1` **and** `FORJINN_JUDGE_CHATFLOW=<a Forjinn judge
-chatflow>` and the runner **automatically attaches** the standard battery
-(Answer Relevancy, Faithfulness, Hallucination, Prompt Alignment, Bias,
-Toxicity) plus a `GEval` seeded from each case's description to *every* case.
-This works identically offline:
+Set `FORJINN_LLM_JUDGE=1` and `FORJINN_JUDGE_CHATFLOW=<judge chatflow>` and the
+runner **automatically attaches** the standard battery + a `GEval` seeded from each
+case's description to *every* case. Offline it uses a permissive `MockJudge`, so it
+runs deterministically with no network:
 
 ```bash
 # live judge (a real Forjinn chatflow over the Forjinn API, SSE by flag)
@@ -303,124 +411,114 @@ FORJINN_LLM_JUDGE=1 FORJINN_JUDGE_CHATFLOW=<id> FORJINN_JUDGE_STREAMING=1 forjin
 FORJINN_LLM_JUDGE=1 FORJINN_OFFLINE=1 forjinn-eval smoke
 ```
 
-In `FORJINN_OFFLINE=1` the overlay uses a permissive `MockJudge` so the full
-catalog runs deterministically with **no network** — ideal for CI of the catalog
-itself. Point the judge at one of your Forjinn chatflows to make it real; it can
-run on any host/model the builder serves (often the same vLLM Forjinn already
-uses).
-
-### Real-LLM tests (not just mocks)
-
-`tests/test_live_llm.py` drives the **actual** Forjinn SSE judge against a live
-host — transport (SSE == non-streaming), JSON extraction from a real LLM reply,
-and full metric pipelines (GEval / LLMJudge / Faithfulness). It skips unless
-opted in:
-
-```bash
-FORJINN_LLM_TESTS=1 FORJINN_HOST=https://172.16.34.7 \
-FORJINN_JUDGE_CHATFLOW=<id> FORJINN_JUDGE_STREAMING=1 \
-  pytest -m live
-```
-
-The full **structured** offline suite lives in `tests/` (split by concern):
-`test_capture.py`, `test_deterministic.py`, `test_llm_metrics.py`, `test_suite.py`,
-`test_cli_plugin.py`, and `test_live_llm.py`.
-
-### Full LLM-judge catalog
-
-| Name | Source | Score derivation |
-|---|---|---|
-| `Faithfulness` | ragas | decompose answer → fraction of statements directly inferred from `retrieved_context()` |
-| `AnswerRelevancy` | ragas | mean of `n` judge samples of how well the answer addresses the question (0–1) |
-| `AnswerRelevancyDeepeval` | deepeval | fraction of output statements relevant to the input (`yes`+`borderline` pass) |
-| `AnswerCorrectness` | ragas | `0.75·F1(claims)` + `0.25·string-sim` vs `run.reference` |
-| `FactualCorrectness(precision/recall/f1)` | ragas | verify claims against reference; P/R/F-beta |
-| `TopicAdherence(reference_topics, mode)` | ragas | P/R/F1 over (topic answered AND on-topic) |
-| `Hallucination` | deepeval | fraction of retrieved contexts the output does **not** contradict |
-| `TaskCompletion` | deepeval | extract task+outcome, judge a direct 0–1 |
-| `GoalAccuracy(desired_outcome)` | ragas | infer goal+end-state, judge 0/1 |
-| `PromptAlignment(instructions)` | deepeval | fraction of given instructions the output followed |
-| `PIILeakage` | deepeval | fraction of extracted statements that are **not** PII |
-| `Bias` | deepeval | extract author opinions, fraction judged unbiased |
-| `Toxicity` | deepeval | extract author opinions, fraction judged non-toxic |
-| `ToolUse(available_tools)` | deepeval | `min(mean tool-selection, mean argument-correctness)` over tool calls |
-| `GEval(criteria) / GEval(evaluation_steps)` | deepeval | judge scores 0–10 against your criteria → `(s-0)/10`; `strict_mode` → binary |
-| `Groundedness` | giskard | LLM `{"reason","passed"}`: answer faithful to context (omissions OK) |
-| `Contradiction` | giskard | LLM `{"reason","passed"}`: passes **unless** it clearly contradicts the context |
-| `Conformity(rule)` | giskard | LLM `{"reason","passed"}`: whole trace conforms to your plain-text rule |
-| `AnswerRelevance` | giskard | LLM `{"reason","passed"}`: answer relevant to the question |
-| `LLMJudge(instruction)` | giskard | fully custom rubric → LLM `{"reason","passed"}` |
-
-**Deterministic string/reference metrics** (no judge): `ExactMatch`,
-`StringPresence`, `NonLLMStringSimilarity` (Levenshtein via `rapidfuzz` when
-installed, Jaccar fallback otherwise) — all against `run.reference`
-(`run.raw["reference"]`).
-
-> **No judge configured?** LLM metrics SKIP (never FAIL) when their required
-> input is absent — e.g. `Faithfulness`/`Hallucination` skip when the run had no
-> retrieved context, and `AnswerCorrectness` skips without a reference — so they
-> can sit in a shared case list without a live judge.
+Point the judge at one of your Forjinn chatflows to make it real — it can run on
+any host/model the builder serves (often the same vLLM Forjinn already uses).
 
 ---
 
-## Files & image upload (Flowise-like)
+## Multi-turn / conversational testing
 
-Forjinn accepts file/image uploads per chatflow and parses them server-side.
-The client wraps both halves:
+Build a transcript and run it through the single-turn catalog *or* the dedicated
+conversational metrics:
 
 ```python
-client = ForjinnClient("https://172.16.34.7")
-A, chat = "b128d0af-445f-45df-b949-a83dd59ef33e", "<chatId>"
-
-uploaded = client.upload_attachment(
-    A, chat,
-    [("files", ("BOM.xlsx", open("BOM.xlsx", "rb"), "application/vnd.ms-excel"))],
+from forjinn_eval import (
+    ForjinnClient, Conversation, Message, AgentRun,
+    TurnFaithfulness, TurnRelevancy, MultiTurnTopicAdherence,
+    make_case, SuiteRunner,
 )
-client.parse_attachment(A, chat, "review")   # parsed representation
+
+# multi-turn against a live agent (agent memory carries the history)
+run = ForjinnClient(HOST).predict_multi_turn(
+    AGT, ["What is our policy on refunds?", "And what about exchanges?"],
+)
+
+# or build a transcript directly (no network)
+conv = Conversation()
+conv.add_human("What is our refund policy?")
+conv.add_ai("Refunds are available within 30 days.")
+conv.add_human("So I can return it in a month?")
+conv.add_ai("Yes, within 30 days of purchase.")
+run = AgentRun.from_conversation(conv)
+
+suite = SuiteRunner(suite_name="conv").run([make_case("refund-thread", run, [
+    TurnFaithfulness(judge=judge, threshold=0.6),
+    TurnRelevancy(judge=judge, threshold=0.5),
+    MultiTurnTopicAdherence(reference_topics=["refunds"], judge=judge, threshold=0.5),
+], tags=["conversation"])])
 ```
 
-Then assert on the parsed payload with `AttachmentParsed` (attach it to the
-run via `run.raw["parsed_attachment"]`).
+See [**docs/architecture.md**](docs/architecture.md) for the `AgentRun` /
+`Conversation` / `Message` data model and [**docs/writing-tests.md**](docs/writing-tests.md#multi-turn--conversational-tests)
+for conversational test patterns.
 
 ---
 
 ## The cumulative set of results
 
-`SuiteResult` is the artifact you keep. It carries, per run **and** aggregated:
+`SuiteResult` is the artefact you keep. It carries, per run **and** aggregated:
 
 - **pass / fail / error / skip** counts + **pass rate**;
 - **per-evaluator rollups** (used-in, pass %, avg score);
-- **usage rollup** — sum/avg/max of tokens and agent-node latency across every
-  run (this is the "cumulative metrics across modules" you asked for);
-- **`group_by(tag)`** — per-tag pass/fail breakdown (e.g. per agent / per
-  feature);
+- **usage rollup** — sum/avg/max of tokens and agent-node latency across runs;
+- **`group_by(tag)`** — per-tag pass/fail breakdown (e.g. per agent / feature);
 - **exports** — Markdown (human), JSON (machine), JUnit XML (CI).
 
-```bash
-forjinn-eval smoke                          # offline smoke against recorded samples
-cat out/report.json | jq '.evaluator_rollups'
+```python
+sr.group_by("agent-1")          # per-tag breakdown
+sr.to_markdown(); sr.to_dict(); sr.to_junit_xml()
+sr.save_json("report.json"); sr.save_junit("report.xml")
 ```
 
 ---
 
-## What a captured `AgentRun` looks like
+## How to run / test the package
+
+```bash
+pip install -e ".[all]"
+
+pytest -q                                            # fully offline unit + integration tests
+forjinn-eval smoke                                   # offline smoke (recorded samples)
+FORJINN_OFFLINE=1 forjinn-eval run examples/agent_tests.py
+FORJINN_OFFLINE=1 forjinn-eval web-scenarios          # full catalog, offline
+FORJINN_LLM_JUDGE=1 FORJINN_OFFLINE=1 forjinn-eval smoke   # LLM catalog demo, no network
+
+# real-LLM (opt-in) — needs a live host + a Forjinn judge chatflow
+FORJINN_LLM_TESTS=1 FORJINN_HOST=https://172.16.34.7 \
+FORJINN_JUDGE_CHATFLOW=<id> FORJINN_JUDGE_STREAMING=1 pytest -m live
+```
+
+`tests/` is split by concern and runs **offline by default**:
 
 ```
-AgentRun(
-  chatflow_id, question,
-  chat_id, session_id,
-  text,                                  # final answer
-  nodes: [Node(...), Node(...)],        # full canvas trace (data.name / status /
-                                          #   model_name / usage / time / called_tools /
-                                          #   available_tools)
-  usage:  { input_tokens, output_tokens, total_tokens, tool_call_tokens },
-  called_tools: [ToolCall(name, arguments, output)],
-  stream_events: [...],                 # when streaming
-)
+tests/unit/          # capture, deterministic metrics, LLM metrics (MockJudge),
+                     # embeddings, conversational, web-scenarios, suite/CLI/plugin
+tests/integration/   # end-to-end client → case → suite (offline fixtures)
+tests/live/          # REAL LLM against a live host (opt-in, -m live)
+tests/fixtures/      # recorded agent captures (ground truth for offline mode)
+examples/            # runnable sample test-case modules (live or FORJINN_OFFLINE=1)
 ```
 
-`AgentRun` is built from either the non-streaming JSON or the streaming SSE —
-the two are reconciled to the same shape, so the *same* evaluators run on both.
+Docs: **[docs/](docs/)** — installation, quickstart, architecture, metrics
+catalog, writing test cases, configuration, API reference, release guide.
+
+---
+
+## Development
+
+```bash
+pip install -e ".[all]"
+mypy            # type-check
+ruff check src tests
+ruff format --check src tests
+pytest -q
+```
+
+To add a metric: a deterministic one goes in `src/forjinn_eval/catalog/<kind>.py`
+(or `metrics/`), an LLM-judged one takes a `judge` argument. Export it from
+`src/forjinn_eval/metrics/__init__.py` and re-export it in `src/forjinn_eval/__init__.py`,
+then add a test in the matching `tests/unit/` module. Record fixtures under
+`tests/fixtures/`.
 
 ---
 
@@ -428,69 +526,26 @@ the two are reconciled to the same shape, so the *same* evaluators run on both.
 
 ```
 src/forjinn_eval/
-  types.py        # ToolCall, UsageMetadata, TimeMetadata, SSE + status constants
-  capture.py      # Node, AgentRun, SSE decoder (non-stream + streaming)
-  client.py       # ForjinnClient (predict / stream / upload_and_parse) on 172.16.34.7
+  types.py        # ToolCall, UsageMetadata, TimeMetadata, Message, Conversation, SSE/status constants
+  capture.py      # Node, AgentRun (non-stream + streaming + from_conversation), SSE decoder
+  client.py       # ForjinnClient (predict / predict_multi_turn / stream / upload_and_parse)
   results.py      # Status (PASS/FAIL/ERROR/SKIP), CheckResult, rollup
-  judge.py        # JudgeClient (a Forjinn chatflow over the Forjinn SSE/JSON API),
-                  #   ForjinnTransport, MockJudge, JSON-in-text extraction
-  suite.py        # agent_test decorator, AgentTestCase, SuiteRunner, SuiteResult (aggregation + exports)
-  cli.py          # forjinn-eval {run,list,smoke}
+  judge.py        # JudgeClient (a Forjinn chatflow over the Forjinn API), ForjinnTransport,
+                  #   MockJudge, Embeddings, queuing_judge, JSON-in-text extraction
+  suite.py        # agent_test decorator, AgentTestCase, SuiteRunner, SuiteResult
+  cli.py          # forjinn-eval {run,list,smoke,web-scenarios}
   plugin.py       # pytest --forjinn-cases integration
-  evaluators.py   # back-compat shim -> catalog
-  llm_metrics.py  # back-compat shim -> catalog.llm
-  catalog/        # the evaluator catalog, split by concern
-    base.py           # Evaluator base
-    structural.py     # AllNodesFinished, RequiredNodesPresent, ModelIs, ...
-    performance.py    # TokenBudget, LatencyBudget
-    tool.py           # ToolCallOrder, ToolCallSetF1, OnlyAllowedTools, ...
-    content.py        # OutputNotEmpty, OutputMatchesRegex, Output* , OutputJsonValid
-    safety.py         # NoCostLeakage
-    attachment.py     # AttachmentParsed, AttachmentUploaded
-    llm.py            # the LLM-judged catalog (ragas/deepeval/giskard re-implementations)
-tests/
-  conftest.py             # shared fixtures (recorded runs, SSE stream, clean registry)
-  fixtures/               # recorded agent-1 / agent-2 captures (no network needed)
-  test_capture.py         # non-stream + streaming -> one AgentRun
-  test_deterministic.py   # deterministic catalog, per-kind verdicts
-  test_llm_metrics.py     # LLM catalog (MockJudge + Forjinn-transport plumbing)
-  test_suite.py           # runner / aggregation / exports / registration
-  test_cli_plugin.py      # CLI + pytest plugin (offline)
-  test_live_llm.py        # REAL LLM against the live host (opt-in, -m live)
-examples/
-  agent_tests.py           # the "anyone can use" template (live or FORJINN_OFFLINE=1)
-  agent_tests_negative.py  # failing + crashing cases (status ladder demo)
+  web_scenarios.py# the Forjinn-web scenario battery (all catalogs, offline/online)
+  catalog/        # deterministic evaluator catalog, split by concern
+  metrics/        # the full metric catalog (deterministic + LLM-judged + conversational)
+tests/            # unit (offline), integration (offline), live (opt-in), fixtures/
+examples/         # runnable sample test-case modules
+docs/             # installation, quickstart, architecture, metrics, writing-tests,
+                  # configuration, api-reference, release
 ```
-
----
-
-## Development
-
-```bash
-pip install -e .[dev]
-pytest -q                                             # fully offline unit tests
-forjinn-eval smoke                                    # offline smoke
-FORJINN_OFFLINE=1 forjinn-eval run examples/agent_tests.py
-FORJINN_LLM_JUDGE=1 FORJINN_OFFLINE=1 forjinn-eval smoke      # LLM-catalog demo, no network
-
-# real-LLM suite against a live host + a Forjinn judge chatflow:
-FORJINN_LLM_TESTS=1 FORJINN_JUDGE_CHATFLOW=<id> FORJINN_JUDGE_STREAMING=1 pytest -m live
-```
-
-Recorded samples in `tests/fixtures/` are the ground truth the offline suite
-runs against, so `pip install -e .` + `pytest` is fully self-contained — the
-LLM-judge tests inject a `MockJudge` / a fake Forjinn transport, so they need no
-network. The real-LLM suite (`test_live_llm.py`) is opt-in and talks to a live
-host. To add a deterministic evaluator, add a subclass in
-`src/forjinn_eval/catalog/<kind>.py`; to add a semantic one, add a class in
-`src/forjinn_eval/catalog/llm.py` that takes a `judge` — and a test in the
-matching `tests/` module.
-
-Optional: `rapidfuzz` (in the `dev`/`text` extras) enables the Levenshtein path
-in `NonLLMStringSimilarity` (a Jaccar fallback is used if it's absent).
 
 ---
 
 ## License
 
-MIT.
+MIT — see [LICENSE](LICENSE).

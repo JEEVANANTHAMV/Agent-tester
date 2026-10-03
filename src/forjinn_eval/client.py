@@ -21,11 +21,12 @@ from __future__ import annotations
 
 import json
 import warnings
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Union
+from collections.abc import Iterator
+from typing import Any, Dict, List, Optional, Union
 
 import requests
 
-from .capture import AgentRun, Conversation, Message, iter_sse_events, parse_sse_text
+from .capture import AgentRun, Conversation, iter_sse_events
 from .types import ForjinnError
 
 # Forjinn self-hosted builders use self-signed certs; verify_ssl=False is the

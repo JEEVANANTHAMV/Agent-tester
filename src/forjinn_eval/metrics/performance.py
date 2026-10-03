@@ -6,7 +6,7 @@ from typing import List, Optional
 from ..capture import AgentRun
 from .base import CheckResult, Evaluator
 
-__all__ = ["TokenBudget", "LatencyBudget"]
+__all__ = ["LatencyBudget", "TokenBudget"]
 
 
 class TokenBudget(Evaluator):

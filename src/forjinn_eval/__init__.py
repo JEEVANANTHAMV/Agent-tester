@@ -27,22 +27,20 @@ each run like a unit test:
 """
 from __future__ import annotations
 
-from typing import Optional  # noqa: E402
+from typing import Optional
 
-from . import catalog  # noqa: F401  (subpackage; deterministic + LLM catalogs)
-from . import evaluators  # noqa: F401  (backward-compat shim)
-from . import llm_metrics  # noqa: F401  (backward-compat shim)
-from . import web_scenarios  # noqa: F401  (open-forjinn-web scenario battery)
-from .web_scenarios import run_all_scenarios  # noqa: F401  (flat API)
-from .judge import _cosine  # noqa: F401  (embedding cosine helper)
+from . import (
+    catalog,  # noqa: F401  (subpackage; deterministic + LLM catalogs)
+    evaluators,  # noqa: F401  (backward-compat shim)
+    llm_metrics,  # noqa: F401  (backward-compat shim)
+    web_scenarios,
+)
 from .capture import AgentRun, Node, StreamEvent, parse_sse_text
-from .client import ForjinnClient
-from .types import Conversation, Message
 from .catalog import (
     AllNodesFinished,
-    AvailableToolsExposed,
     AttachmentParsed,
     AttachmentUploaded,
+    AvailableToolsExposed,
     Evaluator,
     ExpectedNodeCount,
     LatencyBudget,
@@ -64,75 +62,77 @@ from .catalog import (
     ToolCallSetF1,
     default_structural,
 )
+from .client import ForjinnClient
 from .judge import (
     Embeddings,
     ForjinnTransport,
     JudgeClient,
     JudgeError,
     MockJudge,
+    _cosine,  # noqa: F401  (embedding cosine helper)
     extract_json,
     queuing_judge,
     set_default_judge,
 )
 from .metrics import (
+    AgentLoopDetection,
     AllOf,
-    AnyOf,
     AnswerAccuracy,
     AnswerCorrectness,
     AnswerRelevance,
     AnswerRelevancy,
     AnswerRelevancyDeepeval,
     AnswerSimilarity,
-    AgentLoopDetection,
+    AnyOf,
     ArgumentCorrectness,
     Bias,
     BleuScore,
     ChrfScore,
     CitationFaithfulness,
     Conformity,
-    Contradiction,
-    ConversationCompleteness,
     ContextEntityRecall,
     ContextualPrecision,
     ContextualRecall,
     ContextualRelevancy,
+    Contradiction,
     ConversationalGEval,
+    ConversationCompleteness,
     ExactMatch,
     FactualCorrectness,
     Faithfulness,
     GEval,
     GoalAccuracy,
+    GoalAccuracyMulti,
     Groundedness,
     Hallucination,
     KnowledgeRetention,
-    GoalAccuracyMulti,
     LLMJudge,
     Misuse,
-    MultiTurnTopicAdherence,
     MultiTurnToolUse,
-    Not,
+    MultiTurnTopicAdherence,
     NoiseSensitivity,
     NonAdvice,
     NonLLMStringSimilarity,
+    Not,
     PatternMatch,
     PIILeakage,
     PlanAdherence,
     PlanQuality,
     PromptAlignment,
     QuotedSpansAlignment,
-    RougeScore,
     RoleAdherence,
     RoleViolation,
+    RougeScore,
     SemanticSimilarity,
-    StringPresence,
     StepEfficiency,
+    StringPresence,
     Summarization,
     TaskCompletion,
     ToolCallAccuracy,
     ToolCorrectness,
     ToolUse,
-    Toxicity,
     TopicAdherence,
+    Toxicity,
     TurnContextualPrecision,
     TurnContextualRecall,
     TurnContextualRelevancy,
@@ -154,7 +154,9 @@ from .suite import (
     make_case,
     registered_cases,
 )
-from .types import ForjinnError, ToolCall, UsageMetadata
+from .types import Conversation, ForjinnError, Message, ToolCall, UsageMetadata
+from .web_scenarios import run_all_scenarios
+
 
 def _resolve_version() -> str:
     """Resolve ``__version__``: prefer the build-generated ``_version.py``

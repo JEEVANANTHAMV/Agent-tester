@@ -24,13 +24,39 @@ from __future__ import annotations
 
 from typing import List, Optional
 
+from ..judge import Embeddings, JudgeClient
+from ._common import (
+    _OFFLINE_DEFAULTS,
+    _string_similarity,
+)
 from .answer_correctness import AnswerCorrectness
+from .answer_quality import AnswerAccuracy, NoiseSensitivity
 from .answer_relevance import AnswerRelevance
 from .answer_relevancy import AnswerRelevancy
 from .answer_relevancy_deepeval import AnswerRelevancyDeepeval
+from .base import CheckResult, Evaluator  # noqa: F401  (re-exported)
 from .bias import Bias
+from .citations import CitationFaithfulness, QuotedSpansAlignment
+from .composition import AllOf, AnyOf, Not
 from .conformity import Conformity
+from .contextual import (
+    ContextEntityRecall,
+    ContextualPrecision,
+    ContextualRecall,
+    ContextualRelevancy,
+)
 from .contradiction import Contradiction
+from .conversational import (
+    ConversationalGEval,
+    GoalAccuracyMulti,
+    MultiTurnToolUse,
+    MultiTurnTopicAdherence,
+    TurnContextualPrecision,
+    TurnContextualRecall,
+    TurnContextualRelevancy,
+    TurnFaithfulness,
+    TurnRelevancy,
+)
 from .factual_correctness import FactualCorrectness
 from .faithfulness import Faithfulness
 from .g_eval import GEval
@@ -38,36 +64,9 @@ from .goal_accuracy import GoalAccuracy
 from .groundedness import Groundedness
 from .hallucination import Hallucination
 from .llm_judge import LLMJudge
-from .pii_leakage import PIILeakage
-from .prompt_alignment import PromptAlignment
-from .string_metrics import ExactMatch, NonLLMStringSimilarity, StringPresence
-from .task_completion import TaskCompletion
-from .tool_use import ToolUse
-from .toxicity import Toxicity
-from .topic_adherence import TopicAdherence
-
-from .answer_quality import AnswerAccuracy, NoiseSensitivity
-from .citations import CitationFaithfulness, QuotedSpansAlignment
-from .composition import AllOf, AnyOf, Not
-from .conversational import (
-    ConversationalGEval,
-    GoalAccuracyMulti,
-    MultiTurnTopicAdherence,
-    MultiTurnToolUse,
-    TurnContextualPrecision,
-    TurnContextualRecall,
-    TurnContextualRelevancy,
-    TurnFaithfulness,
-    TurnRelevancy,
-)
-from .contextual import (
-    ContextEntityRecall,
-    ContextualPrecision,
-    ContextualRecall,
-    ContextualRelevancy,
-)
 from .loop_detection import AgentLoopDetection
 from .misbehaviour import Misuse, NonAdvice, RoleViolation
+from .pii_leakage import PIILeakage
 from .plan import (
     ConversationCompleteness,
     KnowledgeRetention,
@@ -76,7 +75,10 @@ from .plan import (
     RoleAdherence,
     StepEfficiency,
 )
+from .prompt_alignment import PromptAlignment
+from .string_metrics import ExactMatch, NonLLMStringSimilarity, StringPresence
 from .summarization import Summarization
+from .task_completion import TaskCompletion
 from .text_metrics import (
     AnswerSimilarity,
     BleuScore,
@@ -87,13 +89,9 @@ from .text_metrics import (
 )
 from .tool_correctness import ArgumentCorrectness, ToolCorrectness
 from .tool_deterministic import ToolCallAccuracy
-
-from .base import Evaluator, CheckResult  # noqa: F401  (re-exported)
-from ._common import (
-    _OFFLINE_DEFAULTS,
-    _string_similarity,
-)
-from ..judge import Embeddings, JudgeClient  # noqa: F401  (judge + embedding types)
+from .tool_use import ToolUse
+from .topic_adherence import TopicAdherence
+from .toxicity import Toxicity
 
 
 def default_judge_metrics(

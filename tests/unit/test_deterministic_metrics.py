@@ -2,24 +2,24 @@
 from __future__ import annotations
 
 from forjinn_eval import (
-    AgentRun,
-    PatternMatch,
-    BleuScore,
-    RougeScore,
-    ChrfScore,
-    SemanticSimilarity,
-    AnswerSimilarity,
     AgentLoopDetection,
-    ToolCallAccuracy,
+    AgentRun,
     AllOf,
+    AnswerSimilarity,
     AnyOf,
+    BleuScore,
+    ChrfScore,
     Not,
-    OutputNotEmpty,
     OutputMatchesRegex,
+    OutputNotEmpty,
+    PatternMatch,
+    RougeScore,
+    SemanticSimilarity,
     ToolCall,
+    ToolCallAccuracy,
 )
 from forjinn_eval.results import Status
-from tests.unit._helpers import single_turn_run, multi_turn_run
+from tests.unit._helpers import multi_turn_run, single_turn_run
 
 
 class TestPatternMatch:
@@ -84,7 +84,6 @@ class TestAgentLoopDetection:
         assert res.score < 1.0
 
     def test_failed_node_penalised(self):
-        import json
         from forjinn_eval import AgentRun as AR
         payload = {
             "question": "q", "text": "x",

@@ -10,11 +10,12 @@ using the Giskard rollup priority (``ERROR > FAIL > PASS > SKIP``):
 """
 from __future__ import annotations
 
-from typing import List, Optional, Sequence
+from collections.abc import Sequence
+from typing import List, Optional
 
 from ..capture import AgentRun
-from .base import CheckResult, Evaluator
 from ..results import Status
+from .base import CheckResult, Evaluator
 
 
 class _Composed(Evaluator):

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from forjinn_eval import AgentRun
-from forjinn_eval.capture import StreamEvent, parse_sse_text
+from forjinn_eval.capture import parse_sse_text
 from forjinn_eval.types import STATUS_FINISHED
 
 

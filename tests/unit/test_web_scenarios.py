@@ -1,17 +1,13 @@
 """Offline tests for the 'open forjinn web to all scenarios' runner."""
 from __future__ import annotations
 
-import pytest
-
-from forjinn_eval import web_scenarios as W
 from forjinn_eval import run_all_scenarios
+from forjinn_eval import web_scenarios as W
 from forjinn_eval.web_scenarios import (
-    ForjinnWebRunner,
-    Persona,
     PERSONAS,
+    Persona,
     Scenario,
 )
-from forjinn_eval.results import Status
 
 
 class TestScenarioCatalog:

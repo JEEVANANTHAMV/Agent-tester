@@ -8,9 +8,9 @@ window and render the transcript for the per-turn rubrics.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-from ..capture import AgentRun, Conversation, Message
+from ..capture import AgentRun, Conversation
 
 
 @dataclass
@@ -90,4 +90,4 @@ def tool_names_of(tc_list) -> List[str]:
     return [str(t.name) for t in tc_list if getattr(t, "name", None)]
 
 
-__all__ = ["Turn", "conversation_of", "to_turns", "turns_of", "render_history", "context_for", "tool_names_of"]
+__all__ = ["Turn", "context_for", "conversation_of", "render_history", "to_turns", "tool_names_of", "turns_of"]

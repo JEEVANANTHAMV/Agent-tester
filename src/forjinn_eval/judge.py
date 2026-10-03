@@ -46,9 +46,10 @@ import json
 import os
 import re
 import ssl  # noqa: F401  (kept for parity/optional TLS contexts)
+import urllib.error
 import urllib.request  # noqa: F401
-import urllib.error  # noqa: F401
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from collections.abc import Sequence
+from typing import Any, Callable, List, Optional
 
 
 class JudgeError(RuntimeError):
@@ -300,7 +301,7 @@ class Embeddings:
                 self._st = None
 
     @classmethod
-    def from_env(cls, embedder: Optional[Callable[[str], List[float]]] = None) -> "Embeddings":
+    def from_env(cls, embedder: Optional[Callable[[str], List[float]]] = None) -> Embeddings:
         """Build from env; ``EMBEDDING_MODEL`` selects a sentence-transformers model."""
         return cls(embedder=embedder, model=os.environ.get("EMBEDDING_MODEL") or None)
 
@@ -340,7 +341,7 @@ class Embeddings:
         return _cosine(a, b)
 
 
-def from_env() -> Optional["BaseJudge"]:
+def from_env() -> Optional[BaseJudge]:
     """Build a :class:`JudgeClient` from environment, or ``None`` if not configured.
 
     Enabled when ``FORJINN_JUDGE_CHATFLOW`` is set (optionally forced to stream via
@@ -375,7 +376,7 @@ class MockJudge(BaseJudge):
         self._responder = responder
         self.calls: List[str] = []
 
-    def add(self, result: Any) -> "MockJudge":
+    def add(self, result: Any) -> MockJudge:
         self._queue.append(result)
         return self
 

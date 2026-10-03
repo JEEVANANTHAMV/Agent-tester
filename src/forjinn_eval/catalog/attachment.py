@@ -1,7 +1,8 @@
 """Attachment evaluators: parsed file/image assertions (Flowise-like)."""
 from __future__ import annotations
 
-from typing import Iterable, List, Optional
+from collections.abc import Iterable
+from typing import Optional
 
 from ..capture import AgentRun
 from .base import CheckResult, Evaluator

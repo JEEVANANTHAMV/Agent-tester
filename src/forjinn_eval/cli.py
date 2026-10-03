@@ -131,11 +131,11 @@ def cmd_list(args) -> int:
 
 def cmd_smoke(args) -> int:
     from forjinn_eval import (
-        AllNodesFinished,
         AgentRun,
+        AllNodesFinished,
+        NoCostLeakage,
         OutputMatchesRegex,
         OutputNotEmpty,
-        NoCostLeakage,
         SuiteRunner,
         make_case,
     )

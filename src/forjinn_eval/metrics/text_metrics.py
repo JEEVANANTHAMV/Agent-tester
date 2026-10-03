@@ -19,13 +19,12 @@ from __future__ import annotations
 import math
 import re
 from collections import Counter
-from itertools import combinations
 from typing import List, Optional
 
 from ..capture import AgentRun
 from ..judge import Embeddings
-from .base import CheckResult, Evaluator
 from ._common import _cr, _nan_or_skip
+from .base import CheckResult, Evaluator
 
 
 # ---------------------------------------------------------------------------
@@ -283,13 +282,13 @@ class AnswerSimilarity(SemanticSimilarity):
 
 
 __all__ = [
-    "PatternMatch",
-    "BleuScore",
-    "RougeScore",
-    "ChrfScore",
-    "SemanticSimilarity",
     "AnswerSimilarity",
+    "BleuScore",
+    "ChrfScore",
+    "PatternMatch",
+    "RougeScore",
+    "SemanticSimilarity",
     "bleu",
-    "rouge_l",
     "chrf",
+    "rouge_l",
 ]

@@ -18,9 +18,10 @@ from __future__ import annotations
 
 import os
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Union
+from typing import Any, Callable, Dict, List, Optional
 
 from .capture import AgentRun
 from .evaluators import Evaluator
@@ -280,7 +281,7 @@ class SuiteResult:
 
     # ---- exports ----------------------------------------------------
     def to_junit_xml(self) -> str:
-        from xml.sax.saxutils import escape, quoteattr
+        from xml.sax.saxutils import quoteattr
 
         out = ['<?xml version="1.0" encoding="utf-8"?>', "<testsuites>"]
         suite = self.suite_name or "forjinn-eval"

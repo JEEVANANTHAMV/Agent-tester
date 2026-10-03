@@ -6,8 +6,8 @@ from typing import Optional
 
 from ..capture import AgentRun
 from ..judge import JudgeClient, _judge_or_default
-from .base import CheckResult, Evaluator
 from ._common import _cr, _fmt_list, _judge_user, _nan_or_skip
+from .base import CheckResult, Evaluator
 
 
 class Hallucination(Evaluator):

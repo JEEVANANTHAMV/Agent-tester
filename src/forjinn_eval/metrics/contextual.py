@@ -16,12 +16,12 @@ explicitly or read from :attr:`AgentRun.reference`.
 from __future__ import annotations
 
 import re
-from typing import List, Optional, Sequence
+from typing import List, Optional
 
 from ..capture import AgentRun
 from ..judge import Embeddings, JudgeClient, _judge_or_default
+from ._common import _cr, _f, _judge_user, _nan_or_skip, _verdict_list
 from .base import CheckResult, Evaluator
-from ._common import _cr, _f, _fmt_list, _judge_user, _nan_or_skip, _verdict_list
 
 
 def _sentences(text: str) -> List[str]:
@@ -180,9 +180,9 @@ class ContextEntityRecall(Evaluator):
 
 
 __all__ = [
+    "ContextEntityRecall",
     "ContextualPrecision",
     "ContextualRecall",
     "ContextualRelevancy",
-    "ContextEntityRecall",
     "_sentences",
 ]

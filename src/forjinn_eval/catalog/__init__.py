@@ -16,8 +16,10 @@ from .content import (
     OutputMatchesRegex,
     OutputNotEmpty,
 )
+from .content import OutputNotEmpty as _OutputNotEmpty
 from .performance import LatencyBudget, TokenBudget
 from .safety import NoCostLeakage
+from .safety import NoCostLeakage as _NoCostLeakage
 from .structural import (
     AllNodesFinished,
     ExpectedNodeCount,
@@ -25,6 +27,9 @@ from .structural import (
     RequiredNodesPresent,
     StartNodePassthrough,
 )
+
+# Deterministic default battery (kept next to the structural evaluators)
+from .structural import AllNodesFinished as _AllNodesFinished
 from .tool import (
     AvailableToolsExposed,
     NoToolsExpected,
@@ -33,11 +38,6 @@ from .tool import (
     ToolCallOrder,
     ToolCallSetF1,
 )
-
-# Deterministic default battery (kept next to the structural evaluators)
-from .structural import AllNodesFinished as _AllNodesFinished
-from .content import OutputNotEmpty as _OutputNotEmpty
-from .safety import NoCostLeakage as _NoCostLeakage
 
 
 def default_structural() -> list:
@@ -49,7 +49,6 @@ def default_structural() -> list:
 # dependency cycle at import time (it imports only this package, so it is safe
 # to import here, but we keep the symbol surface explicit).
 from . import llm  # noqa: E402
-
 
 __all__ = [
     "Evaluator",

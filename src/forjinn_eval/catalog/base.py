@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from ..results import CheckResult
 
-__all__ = ["Evaluator", "CheckResult"]
+__all__ = ["CheckResult", "Evaluator"]
 
 
 class Evaluator:

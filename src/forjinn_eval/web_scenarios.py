@@ -36,14 +36,13 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Union
 
-from .import metrics as _M
 from .capture import AgentRun
-from .judge import MockJudge, Embeddings
-from .results import Status
+from .judge import Embeddings
 from .suite import AgentTestCase, SuiteResult, SuiteRunner, make_case
 
 FIXTURES_CANDIDATES = [
@@ -154,14 +153,18 @@ def structural_batteries(run: AgentRun, sc: Scenario, strict_nodes: bool = True)
     ``AllNodesFinished`` since a stitched conversation has no canvas nodes.
     """
     from . import (
-        AllNodesFinished, NoCostLeakage, OutputNotEmpty, AvailableToolsExposed,
-        AgentLoopDetection, NoToolsExpected, TokenBudget,
+        AgentLoopDetection,
+        AllNodesFinished,
+        NoCostLeakage,
+        NoToolsExpected,
+        OutputNotEmpty,
     )
     evs: List = [OutputNotEmpty(), NoCostLeakage(), AgentLoopDetection()]
     if strict_nodes and not (isinstance(sc.inputs, list)):
         evs.insert(0, AllNodesFinished())
     if sc.reference_tool_calls:
-        from . import OnlyAllowedTools, AvailableToolsExposed as _A
+        from . import AvailableToolsExposed as _A
+        from . import OnlyAllowedTools
         evs.append(OnlyAllowedTools([t if isinstance(t, str) else t.get("name")
                                      for t in sc.reference_tool_calls]))
         evs.append(_A())
@@ -174,8 +177,14 @@ def structural_batteries(run: AgentRun, sc: Scenario, strict_nodes: bool = True)
 
 
 def deterministic_batteries(run: AgentRun, sc: Scenario) -> List:
-    from . import (BleuScore, RougeScore, ChrfScore, SemanticSimilarity,
-                   ExactMatch, StringPresence, PatternMatch, ToolCallAccuracy)
+    from . import (
+        BleuScore,
+        ChrfScore,
+        PatternMatch,
+        RougeScore,
+        SemanticSimilarity,
+        ToolCallAccuracy,
+    )
     evs: List = [PatternMatch(r"\S", threshold=0.0)]  # non-empty guard
     if sc.reference:
         ref = sc.reference
@@ -194,9 +203,17 @@ def deterministic_batteries(run: AgentRun, sc: Scenario) -> List:
 
 
 def rag_judge_batteries(judge, embeddings, run: AgentRun, sc: Scenario, threshold: float = 0.5) -> List:
-    from . import (Faithfulness, AnswerRelevancy, AnswerAccuracy, NoiseSensitivity,
-                   ContextualPrecision, ContextualRecall, ContextualRelevancy,
-                   CitationFaithfulness, Groundedness)
+    from . import (
+        AnswerAccuracy,
+        AnswerRelevancy,
+        CitationFaithfulness,
+        ContextualPrecision,
+        ContextualRecall,
+        ContextualRelevancy,
+        Faithfulness,
+        Groundedness,
+        NoiseSensitivity,
+    )
     t = threshold or 0.0
     return [Faithfulness(judge=judge, threshold=t),
             AnswerRelevancy(judge=judge, threshold=t),
@@ -210,15 +227,23 @@ def rag_judge_batteries(judge, embeddings, run: AgentRun, sc: Scenario, threshol
 
 
 def safety_judge_batteries(judge, run: AgentRun, sc: Scenario, threshold: float = 0.5) -> List:
-    from . import (Bias, Toxicity, PIILeakage, Misuse, NonAdvice)
+    from . import Bias, Misuse, NonAdvice, PIILeakage, Toxicity
     return [Bias(judge=judge), Toxicity(judge=judge),
             PIILeakage(judge=judge), Misuse(judge=judge), NonAdvice(judge=judge)]
 
 
 def agent_judge_batteries(judge, run: AgentRun, sc: Scenario, threshold: float = 0.5) -> List:
-    from . import (TaskCompletion, GoalAccuracy, PlanAdherence, PlanQuality,
-                   StepEfficiency, ConversationCompleteness, KnowledgeRetention,
-                   ToolCorrectness, ArgumentCorrectness, Summarization)
+    from . import (
+        ArgumentCorrectness,
+        ConversationCompleteness,
+        KnowledgeRetention,
+        PlanAdherence,
+        PlanQuality,
+        StepEfficiency,
+        Summarization,
+        TaskCompletion,
+        ToolCorrectness,
+    )
     t = threshold or 0.0
     evs = [TaskCompletion(judge=judge, threshold=t),
            PlanAdherence(judge=judge, threshold=t),
@@ -241,10 +266,17 @@ def conversational_batteries(judge, embeddings, run: AgentRun, sc: Scenario, thr
     is_multi = isinstance(sc.inputs, list) or sc.input_kind != "question"
     if not (run.conversation and len(run.turns()) >= 1 and is_multi):
         return []
-    from . import (TurnFaithfulness, TurnRelevancy, TurnContextualPrecision,
-                   TurnContextualRecall, TurnContextualRelevancy,
-                   MultiTurnTopicAdherence, MultiTurnToolUse, GoalAccuracyMulti,
-                   ConversationalGEval)
+    from . import (
+        ConversationalGEval,
+        GoalAccuracyMulti,
+        MultiTurnToolUse,
+        MultiTurnTopicAdherence,
+        TurnContextualPrecision,
+        TurnContextualRecall,
+        TurnContextualRelevancy,
+        TurnFaithfulness,
+        TurnRelevancy,
+    )
     t = threshold or 0.0
     evs = [TurnFaithfulness(judge=judge, threshold=t),
            TurnRelevancy(judge=judge, threshold=t),
@@ -381,7 +413,6 @@ class ForjinnWebRunner:
     def run(self, scenarios: Optional[Sequence[Scenario]] = None,
             suite_name: str = "forjinn-web-scenarios") -> SuiteResult:
         scenarios = list(scenarios if scenarios is not None else all_scenarios())
-        from .suite import SuiteRunner
 
         # We attach the FULL batteries ourselves, so use a runner that does not
         # also add the default LLM overlay (avoid double metrics).
@@ -428,7 +459,6 @@ def run_all_scenarios(
                             "conversation", reference=None,
                             reference_topics=None, tags=["persona", "conversational"]))
     # run all via the shared runner machinery (no default LLM overlay double-add)
-    from .suite import SuiteRunner
     no_overlay = SuiteRunner(parallel=1, suite_name=suite_name)
     cases = [runner.build_case(sc) for sc in scs]
     return no_overlay.run([AgentTestCase(c.name, _resolve_to_agentrun(c),
@@ -436,16 +466,16 @@ def run_all_scenarios(
 
 
 __all__ = [
-    "Persona",
     "PERSONAS",
-    "Scenario",
-    "all_scenarios",
     "ForjinnWebRunner",
-    "run_all_scenarios",
-    "structural_batteries",
+    "Persona",
+    "Scenario",
+    "agent_judge_batteries",
+    "all_scenarios",
+    "conversational_batteries",
     "deterministic_batteries",
     "rag_judge_batteries",
+    "run_all_scenarios",
     "safety_judge_batteries",
-    "agent_judge_batteries",
-    "conversational_batteries",
+    "structural_batteries",
 ]

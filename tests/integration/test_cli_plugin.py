@@ -5,9 +5,7 @@ import json
 import os
 from pathlib import Path
 
-import pytest
-
-from forjinn_eval import cli  # noqa: E402
+from forjinn_eval import cli
 
 HERE = Path(__file__).resolve().parent.parent.parent  # repo root
 EXAMPLES = HERE / "examples"
@@ -28,7 +26,8 @@ class TestSmoke:
     def test_smoke_passes_and_writes_report(self, tmp_path, monkeypatch):
         _env_offline_on()
         try:
-            import io, contextlib
+            import contextlib
+            import io
 
             buf = io.StringIO()
             report = tmp_path / "smoke.json"

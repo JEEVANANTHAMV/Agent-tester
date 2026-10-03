@@ -5,8 +5,8 @@ from typing import Optional
 
 from ..capture import AgentRun
 from ..judge import JudgeClient, _judge_or_default
-from .base import CheckResult, Evaluator
 from ._common import _cr, _f, _fmt_list, _judge_user
+from .base import CheckResult, Evaluator
 
 
 class Toxicity(Evaluator):

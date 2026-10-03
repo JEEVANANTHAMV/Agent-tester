@@ -5,9 +5,9 @@ from __future__ import annotations
 from typing import Optional
 
 from ..capture import AgentRun
-from ..judge import JudgeClient, as_int01, _judge_or_default
-from .base import CheckResult, Evaluator
+from ..judge import JudgeClient, _judge_or_default, as_int01
 from ._common import _cr, _f, _judge_user, _trace_text
+from .base import CheckResult, Evaluator
 
 
 class GoalAccuracy(Evaluator):

@@ -25,11 +25,10 @@ import pytest
 from forjinn_eval import (
     AgentRun,
     Faithfulness,
+    ForjinnClient,
     GEval,
     JudgeClient,
     JudgeError,
-    ForjinnClient,
-    ForjinnError,
     LLMJudge,
     extract_json,
 )

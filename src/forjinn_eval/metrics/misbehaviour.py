@@ -7,12 +7,12 @@ domain: misuse (harming), inappropriate advice, and role drift.
 """
 from __future__ import annotations
 
-from typing import List, Optional, Sequence
+from typing import Optional
 
 from ..capture import AgentRun
-from ..judge import JudgeClient, as_bool, _judge_or_default
-from .base import CheckResult, Evaluator
+from ..judge import JudgeClient, _judge_or_default, as_bool
 from ._common import _cr, _f, _judge_user, _nan_or_skip
+from .base import CheckResult, Evaluator
 
 
 class Misuse(Evaluator):
@@ -117,7 +117,6 @@ class RoleViolation(Evaluator):
     def evaluate(self, run: AgentRun) -> CheckResult:
         if not run.text:
             return _nan_or_skip(self.name, "no output to check")
-        from ._common import _f as _ff  # template has literal braces; use direct format
 
         prompt = self._PROMPT.format(role=self.role, user=run.question, output=run.text)
         out = self.judge.complete_json(_judge_user(prompt))

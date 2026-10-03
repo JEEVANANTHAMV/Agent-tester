@@ -1,7 +1,7 @@
 """Structural evaluators: node presence / status / model / start-node sanity."""
 from __future__ import annotations
 
-from typing import Iterable, List
+from collections.abc import Iterable
 
 from ..capture import AgentRun
 from ..types import STATUS_FINISHED
@@ -9,9 +9,9 @@ from .base import CheckResult, Evaluator
 
 __all__ = [
     "AllNodesFinished",
-    "RequiredNodesPresent",
     "ExpectedNodeCount",
     "ModelIs",
+    "RequiredNodesPresent",
     "StartNodePassthrough",
 ]
 

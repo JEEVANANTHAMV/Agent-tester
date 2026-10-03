@@ -60,20 +60,20 @@ class CheckResult:
     details: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def pass_(cls, name: str, reason: str = "", **kw: Any) -> "CheckResult":
+    def pass_(cls, name: str, reason: str = "", **kw: Any) -> CheckResult:
         passed = kw.pop("passed", True)
         return cls(name=name, status=Status.PASS, reason=reason, passed=True, **kw)
 
     @classmethod
-    def fail_(cls, name: str, reason: str = "", score: Optional[float] = None, **kw: Any) -> "CheckResult":
+    def fail_(cls, name: str, reason: str = "", score: Optional[float] = None, **kw: Any) -> CheckResult:
         return cls(name=name, status=Status.FAIL, reason=reason, passed=False, score=score, **kw)
 
     @classmethod
-    def error_(cls, name: str, reason: str = "", **kw: Any) -> "CheckResult":
+    def error_(cls, name: str, reason: str = "", **kw: Any) -> CheckResult:
         return cls(name=name, status=Status.ERROR, reason=reason, passed=None, **kw)
 
     @classmethod
-    def skip_(cls, name: str, reason: str = "", **kw: Any) -> "CheckResult":
+    def skip_(cls, name: str, reason: str = "", **kw: Any) -> CheckResult:
         return cls(name=name, status=Status.SKIP, reason=reason, passed=None, **kw)
 
     @property

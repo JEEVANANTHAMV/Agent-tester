@@ -1,19 +1,19 @@
 """Tool-evaluation evaluators (deterministic)."""
 from __future__ import annotations
 
-from typing import Iterable, Optional, Union
+from collections.abc import Iterable
+from typing import Optional, Union
 
 from ..capture import AgentRun
-from ..types import ToolCall
 from .base import CheckResult, Evaluator
 
 __all__ = [
-    "ToolCallOrder",
-    "ToolCallSetF1",
+    "AvailableToolsExposed",
+    "NoToolsExpected",
     "OnlyAllowedTools",
     "ToolCallCount",
-    "NoToolsExpected",
-    "AvailableToolsExposed",
+    "ToolCallOrder",
+    "ToolCallSetF1",
 ]
 
 

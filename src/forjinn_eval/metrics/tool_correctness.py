@@ -11,12 +11,13 @@ deterministic :mod:`tool_deterministic` metrics when you want a hard gate).
 """
 from __future__ import annotations
 
-from typing import List, Optional, Sequence
+from collections.abc import Sequence
+from typing import Optional
 
 from ..capture import AgentRun
-from ..judge import JudgeClient, as_int01, _judge_or_default
+from ..judge import JudgeClient, _judge_or_default, as_int01
+from ._common import _cr, _f, _fmt_list, _judge_user, _nan_or_skip, _tool_repr
 from .base import CheckResult, Evaluator
-from ._common import _cr, _f, _fmt_list, _judge_user, _nan_or_skip, _tool_repr, _verdict_list
 
 
 class ToolCorrectness(Evaluator):
@@ -130,4 +131,4 @@ def _to01(x):
     return as_int01(x)
 
 
-__all__ = ["ToolCorrectness", "ArgumentCorrectness"]
+__all__ = ["ArgumentCorrectness", "ToolCorrectness"]

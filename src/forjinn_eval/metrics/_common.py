@@ -23,7 +23,8 @@ This module holds the small helpers every metric needs:
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, List, Sequence, Optional
+from collections.abc import Sequence
+from typing import Any, Dict, List, Optional
 
 from ..capture import AgentRun
 from ..judge import (
@@ -202,7 +203,6 @@ def _fmt(template: str, **fields: Any) -> str:
     (literal JSON examples) untouched. Use this for multi-brace rubric templates
     that must keep their example JSON verbatim.
     """
-    import re as _re
 
     out = template
     for k, v in fields.items():
@@ -346,30 +346,30 @@ def _tool_repr(tc) -> str:
 
 
 __all__ = [
-    "Evaluator",
+    "NAN",
+    "_LEVEL_ORDERS",
+    "_OFFLINE_DEFAULTS",
     "CheckResult",
-    "Status",
+    "Evaluator",
     "JudgeClient",
+    "Status",
+    "_cr",
+    "_f",
+    "_fbeta",
+    "_fmt",
+    "_fmt_list",
+    "_judge_or_default",
+    "_judge_user",
+    "_nan_or_skip",
+    "_norm_list",
+    "_offline_responder",
+    "_offline_responder_shape",
+    "_scale",
+    "_string_similarity",
+    "_tool_repr",
+    "_trace_text",
+    "_verdict_list",
     "as_bool",
     "as_int01",
     "extract_json",
-    "_judge_or_default",
-    "_cr",
-    "_nan_or_skip",
-    "_judge_user",
-    "_f",
-    "_fbeta",
-    "_norm_list",
-    "_fmt_list",
-    "_string_similarity",
-    "_trace_text",
-    "_tool_repr",
-    "_OFFLINE_DEFAULTS",
-    "_offline_responder_shape",
-    "_offline_responder",
-    "_scale",
-    "_LEVEL_ORDERS",
-    "_verdict_list",
-    "_fmt",
-    "NAN",
 ]

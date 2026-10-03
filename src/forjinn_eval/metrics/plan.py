@@ -15,7 +15,7 @@ from __future__ import annotations
 from typing import List, Optional
 
 from ..capture import AgentRun
-from ..judge import JudgeClient, as_int01, _judge_or_default
+from ..judge import JudgeClient, _judge_or_default, as_int01
 from ._common import (
     _LEVEL_ORDERS,
     _cr,
@@ -245,7 +245,6 @@ class RoleAdherence(Evaluator):
         conv = _trace_text(run)
         if not conv:
             return _nan_or_skip(self.name, "empty conversation")
-        from ..judge import as_int01
 
         prompt = (
             'Across the conversation, did the agent STAY in the role "' + self.role + '" (no '
@@ -274,10 +273,10 @@ def _describe_steps(run: AgentRun) -> str:
 
 
 __all__ = [
-    "PlanAdherence",
-    "PlanQuality",
-    "StepEfficiency",
     "ConversationCompleteness",
     "KnowledgeRetention",
+    "PlanAdherence",
+    "PlanQuality",
     "RoleAdherence",
+    "StepEfficiency",
 ]

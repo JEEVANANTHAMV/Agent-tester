@@ -16,11 +16,11 @@ The final score is in ``[0, 1]`` where ``1.0`` = clean, ``0.0`` = severe loop.
 from __future__ import annotations
 
 from collections import Counter
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set
 
 from ..capture import AgentRun
-from .base import CheckResult, Evaluator
 from ._common import _cr, _nan_or_skip
+from .base import CheckResult, Evaluator
 
 
 def _bigram_set(text: str) -> Set[frozenset]:
